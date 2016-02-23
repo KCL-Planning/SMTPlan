@@ -40,7 +40,7 @@ a {
 
 @media screen and (min-width: 42em) and (max-width: 64em) {
   .btn {
-    padding: 0.6rem 0.9rem;
+    padding: 0.25rem 0.25rem;
     font-size: 0.9rem; } }
 
 @media screen and (max-width: 42em) {
@@ -62,8 +62,7 @@ a {
 @media screen and (min-width: 64em) { }
 
 @media screen and (min-width: 42em) and (max-width: 64em) {
-  .page-header {
-    padding: 3rem 4rem; } }
+  .page-header { }
 
 @media screen and (max-width: 42em) {
   .page-header {
@@ -241,3 +240,6 @@ a {
 @media screen and (max-width: 42em) {
   .site-footer {
     font-size: 0.9rem; } }
+	
+.site-footer-credits {
+  font-size: 0.3rem; }
