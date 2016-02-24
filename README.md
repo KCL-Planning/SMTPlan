@@ -2,7 +2,7 @@
 PDDL+ planning through compilation to SMT
 
 Full description on the project website:
-http://kcl-planning.github.io/SMTPlan/benchmarks
+http://kcl-planning.github.io/SMTPlan
 
 ## Contents
 
