@@ -4,6 +4,7 @@
 
 #include "ptree.h"
 #include "FlexLexer.h"
+#include "TIM.h"
 
 #include <fstream>
 #include <sstream>
@@ -30,6 +31,10 @@ namespace SMTPlan
 	{
 	private:
 
+		VAL::domain* domain;
+		VAL::problem* problem;
+		VAL::analysis* analysis;
+
 	public:
 
 		Parser() : domain_parsed(false), problem_parsed(false) {}
@@ -46,6 +51,11 @@ namespace SMTPlan
 		bool parseDomain(const std::string domainPath);
 		bool parseProblem(const std::string problemPath);
 		void clear();
+
+		/* getters */
+		VAL::domain* getDomain();
+		VAL::problem* getProblem();
+		VAL::analysis* getAnalysis();
 	};
 } // close namespace
 

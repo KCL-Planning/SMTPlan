@@ -1,6 +1,8 @@
 /**
  * The structs in this file are used to the setup of an SMTPlan instance.
  */
+#ifndef KCL_options
+#define KCL_options
 
 #include <string>
 
@@ -21,6 +23,9 @@ namespace SMTPlan
 		std::string problem_path;
 		std::string encoding_path;
 
+		// encoding options
+		bool explanatory_var_names;
+
 		// solving options
 		bool solve;
 
@@ -32,3 +37,4 @@ namespace SMTPlan
 
 // close namespace
 }
+#endif

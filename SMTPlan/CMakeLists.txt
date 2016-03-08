@@ -68,7 +68,9 @@ set(VAL_SOURCES
 ## SMTPLAN sources
 set(SMTPLAN_SOURCES
 	src/SMTPlan.cpp
-	src/Parser.cpp)
+	src/Parser.cpp
+	src/Encoder.cpp
+	src/Grounder.cpp)
 
 ## Declare cpp executables
 add_executable(SMTPlan ${SMTPLAN_SOURCES} ${VAL_SOURCES})

@@ -9,14 +9,26 @@ namespace SMTPlan {
 		problem_parsed = false;
 	}
 
+	/*---------------*/
+	/* public access */
+	/*---------------*/
+
+	VAL::domain* Parser::getDomain() {
+		return domain;
+	}
+
+	VAL::problem* Parser::getProblem() {
+		return problem;
+	}
+
+	VAL::analysis* Parser::getAnalysis() {
+		return analysis;
+	}
+
 	/*----------------*/
 	/* parsing domain */
 	/*----------------*/
 
-	/**
-	 * read domain: used for writing the PDDL problem file and then for constructing the dispatch
-	 * messages.
-	 */
 	bool Parser::parseDomain(const std::string domainPath) {
 		
 		// only parse domain once
@@ -53,7 +65,7 @@ namespace SMTPlan {
 			yyparse();
 
 			// domain name
-			VAL::domain* domain = VAL::current_analysis->the_domain;
+			domain = VAL::current_analysis->the_domain;
 			domainName = domain->name;
 
 		}
@@ -67,9 +79,6 @@ namespace SMTPlan {
 	/* parsing problem */
 	/*-----------------*/
 
-	/**
-	 * requests all the information required to build a problem instance.
-	 */
 	bool Parser::parseProblem(const std::string problemPath) {
 
 
@@ -105,10 +114,9 @@ namespace SMTPlan {
 			VAL::yfl->switch_streams(&problemFile,&std::cout);
 			yyparse();
 
-			// domain name
-			VAL::problem* problem = VAL::current_analysis->the_problem;
+			// problem name
+			problem = VAL::current_analysis->the_problem;
 			problemName = problem->name;
-
 		}
 		problemFile.close();
 		delete VAL::yfl;
