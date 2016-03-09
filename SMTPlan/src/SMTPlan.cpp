@@ -4,16 +4,16 @@
 
 #include "SMTPlanConfig.h"
 #include "SMTPlan/PlannerOptions.h"
+
 #include "SMTPlan/Parser.h"
 #include "SMTPlan/Grounder.h"
 #include "SMTPlan/Encoder.h"
-
-#include "TIM.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <algorithm>
 #include <string>
+
 
 int number_of_arguments = 7;
 SMTPlan::Argument argument[] = {
@@ -124,6 +124,8 @@ int main (int argc, char *argv[]) {
 		std::cerr << "Domain and Problem parsing failed." << std::endl;
 		return 1;
 	}
+
+//	TIM::performTIMAnalysis(&argv[1]);
 
 	SMTPlan::Grounder grounder;
 	grounder.ground(parser.getDomain(), parser.getProblem(), options);

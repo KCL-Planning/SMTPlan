@@ -20,6 +20,8 @@ configure_file (
 ## add the binary tree to the include files so that we will find SMTPlanConfig.h
 include_directories("${PROJECT_BINARY_DIR}")
 
+find_package(Boost 1.54 COMPONENTS regex REQUIRED)
+
 ##-------##
 ## Build ##
 ##-------##
@@ -74,6 +76,7 @@ set(SMTPLAN_SOURCES
 
 ## Declare cpp executables
 add_executable(SMTPlan ${SMTPLAN_SOURCES} ${VAL_SOURCES})
+target_link_libraries(SMTPlan ${Boost_LIBRARIES})
 
 # add the install targets
 install (TARGETS SMTPlan DESTINATION bin)

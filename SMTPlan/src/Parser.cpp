@@ -71,7 +71,7 @@ namespace SMTPlan {
 		}
 		domainFile.close();
 		delete VAL::yfl;
-		
+
 		return true;
 	}
 

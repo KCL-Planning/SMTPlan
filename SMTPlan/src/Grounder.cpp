@@ -3,6 +3,15 @@
 /* implementation of SMTPlan::Grounder */
 namespace SMTPlan {
 
+	// is A a type of B?
+	bool Grounder::isTypeOf(const VAL::pddl_type* a, const VAL::pddl_type* b) {
+		if(a->getName() == b->getName())
+			return true;
+		if(a->getName() == "object")
+			return false;
+		return isTypeOf(a->type, b);
+	}
+
 	// ground out problem and store
 	bool Grounder::ground(VAL::domain* domain, VAL::problem* problem, PlannerOptions &options) {
 
@@ -25,6 +34,12 @@ namespace SMTPlan {
 		}
 	}
 
+	// copy one (partial) PDDLDurativeAction into another
+	void Grounder::copyDurativeAction(PDDLDurativeAction &oldact, PDDLDurativeAction &newact) {
+		copyFormula(oldact.definition, newact.definition);
+		newact.param_object = oldact.param_object;
+	}
+
 	/*---------*/
 	/* ACTIONS */
 	/*---------*/
@@ -38,9 +53,10 @@ namespace SMTPlan {
 		for (VAL::operator_list::const_iterator ci = operators->begin(); ci != operators->end(); ci++) {			
 			const VAL::operator_* op = *ci;
 
-			PDDLAtomicFormula action;
-			action.name = op->name->symbol::getName();
-			std::deque<PDDLAtomicFormula> groundingActions;
+			PDDLDurativeAction action;
+			action.definition.name = op->name->symbol::getName();
+			action_map[action.definition.name];
+			std::deque<PDDLDurativeAction> groundingActions;
 			groundingActions.push_back(action);
 
 			for (VAL::var_symbol_list::const_iterator vi = op->parameters->begin(); vi != op->parameters->end(); vi++) {
@@ -58,11 +74,12 @@ namespace SMTPlan {
 						const VAL::const_symbol* object = *ci;
 
 						// bind object to parameter, save (partially) grounded action
-						if(object->type->getName() == var->type->getName()) {
-							PDDLAtomicFormula newAction;
-							copyFormula(action, newAction);
-							newAction.param_types.push_back(object->type->getName());
-							newAction.param_names.push_back(object->getName());
+						if(isTypeOf(object->type, var->type)) {
+							PDDLDurativeAction newAction;
+							copyDurativeAction(action, newAction);
+							newAction.definition.param_types.push_back(object->type->getName());
+							newAction.definition.param_names.push_back(object->getName());
+							newAction.param_object[var->getName()] = object->getName();
 							groundingActions.push_back(newAction);
 						}
 					}
@@ -71,21 +88,19 @@ namespace SMTPlan {
 
 			// save grounded actions
 			while(groundingActions.size()>0) {
-				PDDLAtomicFormula action = groundingActions.front();
+				PDDLDurativeAction action = groundingActions.front();
 				
 				std::stringstream ss;
 				if(options.explanatory_var_names) {
-					ss << action.name;
-					for(int i=0; i< action.param_names.size(); i++)
-						ss << "_" << action.param_names[i];
+					ss << action.definition.name;
+					for(int i=0; i< action.definition.param_names.size(); i++)
+						ss << "_" << action.definition.param_names[i];
 				} else {
 					ss << "p" << actions.size();
 				}
 				action.var_name = ss.str();
 				actions.push_back(action);
-				if(action_map.find(action.name)==action_map.end())
-					action_map[action.name];
-				action_map[action.name].push_back(action);
+				action_map[action.definition.name].push_back(action);
 				groundingActions.pop_front();
 			}
 		}

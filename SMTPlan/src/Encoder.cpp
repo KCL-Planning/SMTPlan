@@ -175,21 +175,47 @@ namespace SMTPlan {
 	 */
 	void Encoder::encodeActionConditions(VAL::domain* domain, VAL::problem* problem, Grounder &grounder, int h) {
 
-		// actions
+		// operators
 		VAL::operator_list* operators = domain->ops;
 		for (VAL::operator_list::const_iterator ci = operators->begin(); ci != operators->end(); ci++) {
+			const VAL::operator_* op = (*ci);
+			const VAL::goal* condition = op->precondition;
+			const std::string name = op->name->symbol::getName();
 
-			
+			// if no actions, skip operator
+			if(grounder.action_map[name].size() == 0)
+				continue;
 
-			std::string condition = parseTimedCondition()
-			(*out) << "(assert (=> " << "sta_" << grounder.actions[i].var_name << "_" << h;
-			
-			(*out) << "(assert (=> " << "end_" << grounder.actions[i].var_name << "_" << h;
-			(*out) << "(assert (=> " << "end_" << grounder.actions[i].var_name << "_" << h;
+			// ungrounded conditions
+			std::string c_start = parseTimedCondition(condition, VAL::E_AT_START, h);
+			std::string c_end = parseTimedCondition(condition, VAL::E_AT_END, h);
+			std::string c_overall = parseTimedCondition(condition, VAL::E_OVER_ALL, h);
 
-			(*out) << ")" << std::endl;
-		}		
+			// for each action of this operator
+			std::vector<PDDLDurativeAction>::iterator ait = grounder.action_map[name].begin();
+			for(; ait!=grounder.action_map[name].end(); ait++) {
+				PDDLDurativeAction action = (*ait);
 
+				if(c_start.length()>0) {
+					std::string gc_start = c_start;
+					findReplace(gc_start, action.param_object);
+					(*out) << "(assert (=> " << "sta_" << action.var_name << "_" << h << " " << gc_start << "))" << std::endl;
+				}
+
+				if(c_end.length()>0) {
+					std::string gc_end = c_end;
+					findReplace(gc_end, action.param_object);
+					(*out) << "(assert (=> " << "end_" << action.var_name << "_" << h << " " << gc_end << "))" << std::endl;
+				}
+
+				if(c_overall.length()>0) {
+					std::string gc_overall = c_overall;
+					findReplace(gc_overall, action.param_object);
+					(*out) << "(assert (=> " << "sta_" << action.var_name << "_" << h << " " << gc_overall << "))" << std::endl;
+					(*out) << "(assert (=> " << "end_" << action.var_name << "_" << h << " " << gc_overall << "))" << std::endl;
+				}
+			}
+		}
 	}
 
 	/**
@@ -197,6 +223,81 @@ namespace SMTPlan {
 	 * Enforces action effects.
 	 */
 	void Encoder::encodeActionEffects(VAL::domain* domain, VAL::problem* problem, Grounder &grounder, int h) {
+
+		// operators
+		VAL::operator_list* operators = domain->ops;
+		for (VAL::operator_list::const_iterator ci = operators->begin(); ci != operators->end(); ci++) {
+			const VAL::operator_* op = (*ci);
+			const VAL::effect_lists* eff_list = op->effects;
+			const std::string name = op->name->symbol::getName();
+
+			// if no actions, skip operator
+			if(grounder.action_map[name].size() == 0)
+				continue;
+
+			// timed effects
+			for (VAL::pc_list<VAL::timed_effect*>::const_iterator ci = eff_list->timed_effects.begin(); ci != eff_list->timed_effects.end(); ci++) {
+				const VAL::timed_effect* effect = *ci;
+
+
+				std::vector<PDDLDurativeAction>::iterator ait = grounder.action_map[name].begin();
+				for(; ait!=grounder.action_map[name].end(); ait++) {
+					PDDLDurativeAction action = (*ait);
+
+					std::stringstream ss;					
+
+					// simple add effects
+					VAL::pc_list<VAL::simple_effect*>::const_iterator sei = effect->effs->add_effects.begin();
+					if (sei != effect->effs->add_effects.end()) {
+						const VAL::simple_effect* simpleEffect = *sei;
+						ss << simpleEffect->prop->head->getName();
+						for (VAL::parameter_symbol_list::const_iterator vi = simpleEffect->prop->args->begin(); vi != simpleEffect->prop->args->end(); vi++) {			
+							const VAL::parameter_symbol* var = *vi;
+							ss << "_" << var->getName();
+						}
+						ss << "_1_" << h;
+					}
+
+					// negative effects
+					VAL::pc_list<VAL::simple_effect*>::const_iterator nei = effect->effs->del_effects.begin();
+					if (nei != effect->effs->del_effects.end()) {
+						const VAL::simple_effect* simpleEffect = *nei;
+						ss << "(not " << simpleEffect->prop->head->getName();
+						for (VAL::parameter_symbol_list::const_iterator vi = simpleEffect->prop->args->begin(); vi != simpleEffect->prop->args->end(); vi++) {			
+							const VAL::parameter_symbol* var = *vi;
+							ss << "_" << var->getName();
+						}
+						ss << "_1_" << h << ")";
+					}
+
+					// assign effects
+					VAL::pc_list<VAL::assignment*>::const_iterator aei = effect->effs->assign_effects.begin();
+					if (aei != effect->effs->assign_effects.end()) {
+						const VAL::assignment* assignEffect = *aei;
+
+						std::stringstream ss;
+						ss << assignEffect->getFTerm()->getFunction()->getName();
+						for (VAL::parameter_symbol_list::const_iterator vi = assignEffect->getFTerm()->getArgs()->begin(); vi != assignEffect->getFTerm()->getArgs()->end(); vi++) {		
+							const VAL::parameter_symbol* var = *vi;
+							ss << "_" << var->getName();
+						}
+						ss << "_1_" << h;
+					}
+					
+					ss << "))" << std::endl;
+
+					std::string effectString = ss.str();
+					findReplace(effectString, action.param_object);
+
+					switch(effect->ts) {
+					case VAL::E_AT_START: (*out) << "(assert (=> " << "sta_" << action.var_name << "_" << h << " "; break;
+					case VAL::E_AT_END: (*out) << "(assert (=> " << "end_" << action.var_name << "_" << h << " "; break;
+					default: std::cerr << "UNRECOGNISED EFFECT TIME SPEC" << std::endl; break;
+					}
+					(*out) << effectString;
+				}
+			}
+		}
 	}
 
 	/**
@@ -204,6 +305,17 @@ namespace SMTPlan {
 	 * Enforces action mutual exclusion relations.
 	 */
 	void Encoder::encodeActionMutexes(VAL::domain* domain, VAL::problem* problem, Grounder &grounder, int h) {
+
+		std::vector<PDDLDurativeAction>::iterator ait1 = grounder.actions.begin();
+		std::vector<PDDLDurativeAction>::iterator ait2 = grounder.actions.begin();
+		for(; ait1!=grounder.actions.end(); ait1++) {
+			for(; ait2!=ait1; ait2++) {
+				(*out) << "(assert (=> " << "sta_" << (*ait1).var_name << "_" << h << " " << "(not sta_" << (*ait2).var_name << "_" << h << ")))" << std::endl;
+				(*out) << "(assert (=> " << "sta_" << (*ait1).var_name << "_" << h << " " << "(not end_" << (*ait2).var_name << "_" << h << ")))" << std::endl;
+				(*out) << "(assert (=> " << "end_" << (*ait1).var_name << "_" << h << " " << "(not sta_" << (*ait2).var_name << "_" << h << ")))" << std::endl;
+				(*out) << "(assert (=> " << "end_" << (*ait1).var_name << "_" << h << " " << "(not end_" << (*ait2).var_name << "_" << h << ")))" << std::endl;
+			}
+		}
 	}
 
 	/*---------------------*/
@@ -239,7 +351,7 @@ namespace SMTPlan {
 				const VAL::parameter_symbol* var = *vi;
 				ss << "_" << var->getName();
 			}
-			ss << "_" << h;
+			ss << "_0_" << h;
 			return ss.str();
 		}
 
@@ -294,7 +406,7 @@ namespace SMTPlan {
 				const VAL::parameter_symbol* var = *vi;
 				ss << "_" << var->getName();
 			}
-			ss << "_" << h;
+			ss << "_0_" << h;
 			return ss.str();
 		}
 
@@ -323,7 +435,7 @@ namespace SMTPlan {
 		// conjunctive condition
 		const VAL::conj_goal* cg = dynamic_cast<const VAL::conj_goal*>(goal);
 		if (cg) {
-			ss << "(and ";
+			ss << "(and";
 		        const VAL::goal_list* goals = cg->getGoals();
 		        for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
 				ss << " " << parseCondition((*ci),h);
@@ -335,7 +447,7 @@ namespace SMTPlan {
 		// disjunctive condition
 		const VAL::disj_goal* dg = dynamic_cast<const VAL::disj_goal*>(goal);
 		if (dg) {
-			ss << "(or ";
+			ss << "(or";
 		        const VAL::goal_list* goals = dg->getGoals();
 		        for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
 				ss << " " << parseCondition((*ci),h);
@@ -344,21 +456,6 @@ namespace SMTPlan {
 			return ss.str();
 		}
 
-		/*
-		// timed condition
-		const VAL::timed_goal* tg = dynamic_cast<const VAL::timed_goal*>(goal);
-		if (tg) {
-			switch(tg->getTime()) {
-				case VAL::E_AT_START: time_spec = START; break;
-				case VAL::E_AT_END: time_spec = END; break;
-				case VAL::E_OVER_ALL: time_spec = ALL; break;
-			};
-			PDDLGDTimed pgdt(time_spec);
-			PDDLGoalDescription inner = parseCondition(tg->getGoal());
-			pgdt.goal_conditions.push_back(inner);
-			return pgdt;
-		}
-		*/
 		return "PARSING_ERROR";
 	}
 
@@ -372,25 +469,29 @@ namespace SMTPlan {
 		// conjunctive condition
 		const VAL::conj_goal* cg = dynamic_cast<const VAL::conj_goal*>(goal);
 		if (cg) {
-			ss << "(and ";
+			ss << "(and";
 		        const VAL::goal_list* goals = cg->getGoals();
 		        for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
-				ss << " " << parseTimedCondition((*ci),part,h);
+				std::string c = parseTimedCondition((*ci),part,h);
+				if(c.length()>0) ss << " " << c;
 			}
 			ss << ")";
-			return ss.str();
+			if (ss.str().length()>5) return ss.str();
+			return "";
 		}
 
 		// disjunctive condition
 		const VAL::disj_goal* dg = dynamic_cast<const VAL::disj_goal*>(goal);
 		if (dg) {
-			ss << "(or ";
+			ss << "(or";
 		        const VAL::goal_list* goals = dg->getGoals();
 		        for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
-				ss << " " << parseTimedCondition((*ci),part,h);
+				std::string c = parseTimedCondition((*ci),part,h);
+				if(c.length()>0) ss << " " << c;
 			}
 			ss << ")";
-			return ss.str();
+			if (ss.str().length()>4) return ss.str();
+			return "";
 		}
 
 
@@ -406,5 +507,4 @@ namespace SMTPlan {
 
 		return "PARSING_ERROR";
 	}
-
 } // close namespace

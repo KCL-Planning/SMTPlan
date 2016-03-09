@@ -17,7 +17,6 @@
 
 namespace SMTPlan
 {
-
 	struct PDDLAtomicFormula
 	{
 		// SMT
@@ -29,14 +28,28 @@ namespace SMTPlan
 		std::vector<string> param_names;
 	};
 
+	struct PDDLDurativeAction
+	{
+		// SMT
+		std::string var_name;
+
+		// PDDL
+		PDDLAtomicFormula definition;
+		std::map<std::string,std::string> param_object;
+	};
+
 	class Grounder
 	{
 	private:
 
+		bool isTypeOf(const VAL::pddl_type* a, const VAL::pddl_type* b);
+
 		void groundProps(VAL::domain* domain, VAL::problem* problem, PlannerOptions &options);
 		void groundFluents(VAL::domain* domain, VAL::problem* problem, PlannerOptions &options);
 		void groundActions(VAL::domain* domain, VAL::problem* problem, PlannerOptions &options);
+
 		void copyFormula(PDDLAtomicFormula &oldProp, PDDLAtomicFormula &newProp);
+		void copyDurativeAction(PDDLDurativeAction &oldact, PDDLDurativeAction &newact);
 
 	public:
 
@@ -46,10 +59,10 @@ namespace SMTPlan
 		/* grounded problem */
 		std::vector<PDDLAtomicFormula> props;
 		std::vector<PDDLAtomicFormula> fluents;
-		std::vector<PDDLAtomicFormula> actions;
+		std::vector<PDDLDurativeAction> actions;
 
 		/* maps */
-		std::map<std::string,std::vector<PDDLAtomicFormula> > action_map;
+		std::map<std::string,std::vector<PDDLDurativeAction> > action_map;
 
 		/* grounding method */
 		bool grounded;
