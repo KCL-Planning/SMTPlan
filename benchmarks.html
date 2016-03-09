@@ -40,7 +40,7 @@ of tanks is increased while decreasing the initial fuel level.
 This version uses the Torricelli’s Law (which is too complex for existing planners), and hence
 the fuel level in a refuelling tank (V f uel ) is calculated by:
 
-<td><img src="images/dynamics.png" alt="OK" style="height:50px;"></td>
+<td><img src="images/dynamics.png" alt="OK" style="height:120px;"></td>
 <br>
 where V init is the initial volume of fuel in the tank, k is 
 the fuel flow constant (which depends on gravity, size of the
@@ -49,9 +49,9 @@ time of refueling (bounded by the fuel level and the flow
 constant). Here is an example of plan found by SMTPlan+
 for the Torricelli nonlinear generator:
 
-<p>0.0: generate [1000.0]</p>
-<p>959.0: refuel_tank1 [10.0]</p>
-<p>959.0: refuel_tank2 [10.0]</p>
+<p>0.0: generate [1000.0]<br>
+959.0: refuel_tank1 [10.0]<br>
+959.0: refuel_tank2 [10.0]</p>
 
 <p><strong>Linear Car</strong></p>
 
