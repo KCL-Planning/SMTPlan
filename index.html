@@ -28,7 +28,8 @@
 <p><strong>SMTPlan+</strong> provides an SMT encoding of the PDDL+ models and can handle linear domains as well as domains with nonlinear polynomial change.</p>
 
 <h3><a id="pddl" class="anchor" href="#pddl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>PDDL+</h3>
-<p>PDDL+ is the extension of PDDL that allows modelling of mixed discrete-continuous domains, and it follows the Hybrid Automata semantics. DDealing with hybrid systems is becoming more and more an important challenge, as many real-world scenarios feature a mixture of discrete and continuous behaviours.</p>
+<p>PDDL+ is the extension of PDDL that allows modelling of mixed discrete-continuous domains, and it follows the Hybrid Automata semantics. Dealing with hybrid systems is becoming more and more an important challenge, as many real-world scenarios feature a mixture of discrete and continuous behaviours.</p>
+<p>Compared to PDDL2.1, PDDL+ includes the following additional features, that can all be handled by SMTPlan+.</p>
 
 <table border="1">
 <tr>
@@ -42,23 +43,23 @@
 </tr>
 <tr>
 <td>SMTPlan+</td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td><img src="images/green-tick.svg" alt="OK" style="width:30px;height:30px;"></td>
+<td><img src="images/green-tick.svg" alt="OK" style="width:30px;height:30px;"></td>
+<td><img src="images/green-tick.svg" alt="OK" style="width:30px;height:30px;"></td>
+<td><img src="images/green-tick.svg" alt="OK" style="width:30px;height:30px;"></td>
+<td><img src="images/green-tick.svg" alt="OK" style="width:30px;height:30px;"></td>
+<td><img src="images/green-tick.svg" alt="OK" style="width:30px;height:30px;"></td>
 </tr>
 </table>
 
 <h3><a id="smt" class="anchor" href="#smt" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>SMT Encoding</h3>
-
+<p>The econding is based on the notion of <b>happening</b>, which is used to capture the change in the state at a given time point
+due to the effects of actions, processes, or events. Happenings describe discrete change and between happenings there is only continuous change.</p>
 <img src="images/encodingCHAIN.png" alt="Mountain View">
 
-<p>To create a paragraph, simply create a block of text that is not separated by one or more blank lines. Blocks of text separated by one or more blank lines will be parsed as paragraphs. If you want to create a line break, end a line with two or more spaces, then hit Return/Enter.</p>
+<p>A PDDL+ model can be described as a bounded set of happenings X:= {x1...xn } encoded as an SMT formula, such that any proof for the SMT
+formula represents the trace of a valid plan. The initial state is modelled in x1 , and the goal constraints are added to xn.</p>
 
-<h3><a id="smtplan-translation" class="anchor" href="#smtplan-translation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>SMTPlan+ translation</h3>
-<p>To create a paragraph, simply create a block of text that is not separated by one or more blank lines. Blocks of text separated by one or more blank lines will be parsed as paragraphs. If you want to create a line break, end a line with two or more spaces, then hit Return/Enter.</p>
 
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/KCL-Planning/SMTPlan">SMTPlan+</a> is maintained by <a href="https://github.com/KCL-Planning">KCL-Planning</a>.</span>
