@@ -43,27 +43,27 @@ namespace SMTPlan {
 	 */
 	void Encoder::encodeHeader(VAL::domain* domain, VAL::problem* problem, Grounder &grounder, int h) {
 
-		(*out) << "(declare-fun time_" << h << " Real)" << std::endl;
-		(*out) << "(declare-fun duration_" << h << " Real)" << std::endl;
+		(*out) << "(declare-fun t_" << h << " () Real)" << std::endl;
+		(*out) << "(declare-fun duration_" << h << " () Real)" << std::endl;
 
 		// propositions
 		for (int i=0; i<grounder.props.size(); i++) {
-			(*out) << "(declare-fun " << grounder.props[i].var_name << "_0_" << h << " Bool)" << std::endl;
-			(*out) << "(declare-fun " << grounder.props[i].var_name << "_1_" << h << " Bool)" << std::endl;
+			(*out) << "(declare-fun " << grounder.props[i].var_name << "_0_" << h << " () Bool)" << std::endl;
+			(*out) << "(declare-fun " << grounder.props[i].var_name << "_1_" << h << " () Bool)" << std::endl;
 		}
 
 		// fluents
 		for (int i=0; i<grounder.fluents.size(); i++) {
-			(*out) << "(declare-fun " << grounder.fluents[i].var_name << "_0_" << h << " Real)" << std::endl;
-			(*out) << "(declare-fun " << grounder.fluents[i].var_name << "_1_" << h << " Real)" << std::endl;
+			(*out) << "(declare-fun " << grounder.fluents[i].var_name << "_0_" << h << " () Real)" << std::endl;
+			(*out) << "(declare-fun " << grounder.fluents[i].var_name << "_1_" << h << " () Real)" << std::endl;
 		}
 
 		// actions
 		for (int i=0; i<grounder.actions.size(); i++) {
-			(*out) << "(declare-fun " << "sta_" << grounder.actions[i].var_name << "_" << h << " Bool)" << std::endl;
-			(*out) << "(declare-fun " << "end_" << grounder.actions[i].var_name << "_" << h << " Bool)" << std::endl;
-			(*out) << "(declare-fun " << "run_" << grounder.actions[i].var_name << "_" << h << " Bool)" << std::endl;
-			(*out) << "(declare-fun " << "dur_" << grounder.actions[i].var_name << "_" << h << " Real)" << std::endl;
+			(*out) << "(declare-fun " << "sta_" << grounder.actions[i].var_name << "_" << h << " () Bool)" << std::endl;
+			(*out) << "(declare-fun " << "end_" << grounder.actions[i].var_name << "_" << h << " () Bool)" << std::endl;
+			(*out) << "(declare-fun " << "run_" << grounder.actions[i].var_name << "_" << h << " () Bool)" << std::endl;
+			(*out) << "(declare-fun " << "dur_" << grounder.actions[i].var_name << "_" << h << " () Real)" << std::endl;
 		}
 	}
 
@@ -104,7 +104,7 @@ namespace SMTPlan {
 				const VAL::parameter_symbol* var = *vi;
 				ss << "_" << var->getName();
 			}
-			ss << "_0";
+			ss << "_0_0";
 
 			(*out) << "(assert " << ss.str() << ")" << std::endl;
 		}
@@ -119,7 +119,7 @@ namespace SMTPlan {
 				const VAL::parameter_symbol* var = *vi;
 				ss << "_" << var->getName();
 			}
-			ss << "_0";
+			ss << "_0_0";
 
 			(*out) << "(assert (= " << ss.str() << " " << parseExpression(effect->getExpr(),0) << "))" << std::endl;
 		}
@@ -150,16 +150,16 @@ namespace SMTPlan {
 		// explanatory frame axioms
 		for (int i=0; i<grounder.props.size(); i++) {
 			(*out) << "(assert (=> "
-					<< grounder.props[i].var_name << "_" << h
-					<< grounder.props[i].var_name << "_" << (h-1)
+					<< grounder.props[i].var_name << "_0_" << h
+					<< grounder.props[i].var_name << "_1_" << (h-1)
 					<< " ))" << std::endl;
 		}
 
 		// fixed numeric variables
 		for (int i=0; i<grounder.fluents.size(); i++) {
 			(*out) << "(assert (= "
-					<< grounder.fluents[i].var_name << "_" << h
-					<< grounder.fluents[i].var_name << "_" << (h-1)
+					<< grounder.fluents[i].var_name << "_0_" << h
+					<< grounder.fluents[i].var_name << "_1_" << (h-1)
 					<< " ))" << std::endl;
 		}
 		

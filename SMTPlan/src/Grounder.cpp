@@ -139,7 +139,7 @@ namespace SMTPlan {
 						const VAL::const_symbol* object = *ci;
 
 						// bind object to parameter, save (partially) grounded fluent
-						if(object->type->getName() == var->type->getName()) {
+						if(isTypeOf(object->type, var->type)) {
 							PDDLAtomicFormula newFluent;
 							copyFormula(fluent, newFluent);
 							newFluent.param_types.push_back(object->type->getName());
@@ -184,6 +184,7 @@ namespace SMTPlan {
 
 			PDDLAtomicFormula prop;
 			prop.name = predicate->getPred()->symbol::getName();
+			prop_map[prop.name];
 			std::deque<PDDLAtomicFormula> groundingProps;
 			groundingProps.push_back(prop);
 
@@ -202,7 +203,7 @@ namespace SMTPlan {
 						const VAL::const_symbol* object = *ci;
 
 						// bind object to parameter, save (partially) grounded prop
-						if(object->type->getName() == var->type->getName()) {
+						if(isTypeOf(object->type, var->type)) {
 							PDDLAtomicFormula newProp;
 							copyFormula(prop, newProp);
 							newProp.param_types.push_back(object->type->getName());
@@ -227,6 +228,7 @@ namespace SMTPlan {
 				}
 				prop.var_name = ss.str();
 				props.push_back(prop);
+				prop_map[prop.name].push_back(prop);
 				groundingProps.pop_front();
 			}
 		}

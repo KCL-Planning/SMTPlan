@@ -62,6 +62,7 @@ namespace SMTPlan
 		std::vector<PDDLDurativeAction> actions;
 
 		/* maps */
+		std::map<std::string,std::vector<PDDLAtomicFormula> > prop_map;
 		std::map<std::string,std::vector<PDDLDurativeAction> > action_map;
 
 		/* grounding method */
