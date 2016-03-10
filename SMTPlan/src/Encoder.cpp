@@ -25,15 +25,22 @@ namespace SMTPlan {
 		}
 
 		encodeInitialState(domain, problem, grounder);
-		encodeGoalState(domain, problem, grounder, H);
+		encodeGoalState(domain, problem, grounder, (H-1));
 
 		for(int h=0; h<H; h++) {
 			encodeTimings(h);
-			encodeVariableSupport(domain, problem, grounder, h);
+			encodeHappeningVariableSupport(domain, problem, grounder, h);
+			encodeIntervalVariableSupport(domain, problem, grounder, h);
 			encodeActionConditions(domain, problem, grounder, h);
 			encodeActionEffects(domain, problem, grounder, h);
+			encodeActionDurations(domain, problem, grounder, h);
 			encodeActionMutexes(domain, problem, grounder, h);
 		}
+
+
+		(*out) << "(check-sat)" << std::endl;
+		(*out) << "(get-model)" << std::endl;
+		(*out) << "(exit)" << std::endl;
 
 		return true;
 	}
@@ -92,22 +99,18 @@ namespace SMTPlan {
 	 */
 	void Encoder::encodeInitialState(VAL::domain* domain, VAL::problem* problem, Grounder &grounder) {
 
-		VAL::effect_lists* eff_list = problem->initial_state;
-
-		// simple add effects
-		for (VAL::pc_list<VAL::simple_effect*>::const_iterator ci = eff_list->add_effects.begin(); ci != eff_list->add_effects.end(); ci++) {
-			const VAL::simple_effect* effect = *ci;
-
+		// discrete part
+		for(int i=0; i<grounder.props.size(); i++) {			
 			std::stringstream ss;
-			ss << effect->prop->head->getName();
-			for (VAL::parameter_symbol_list::const_iterator vi = effect->prop->args->begin(); vi != effect->prop->args->end(); vi++) {			
-				const VAL::parameter_symbol* var = *vi;
-				ss << "_" << var->getName();
-			}
-			ss << "_0_0";
-
+			if(!grounder.initial_state[i])
+				ss << "(not ";
+			ss << grounder.props[i].var_name << "_0_0";
+			if(!grounder.initial_state[i])
+				ss << ")";			
 			(*out) << "(assert " << ss.str() << ")" << std::endl;
 		}
+
+		VAL::effect_lists* eff_list = problem->initial_state;
 
 		// assign effects
 		for (VAL::pc_list<VAL::assignment*>::const_iterator ci = eff_list->assign_effects.begin(); ci != eff_list->assign_effects.end(); ci++) {
@@ -121,7 +124,7 @@ namespace SMTPlan {
 			}
 			ss << "_0_0";
 
-			(*out) << "(assert (= " << ss.str() << " " << parseExpression(effect->getExpr(),0) << "))" << std::endl;
+			(*out) << "(assert (= " << ss.str() << " " << parseExpression(effect->getExpr(),0,0) << "))" << std::endl;
 		}
 	}
 
@@ -132,7 +135,7 @@ namespace SMTPlan {
 	void Encoder::encodeGoalState(VAL::domain* domain, VAL::problem* problem, Grounder &grounder, int h) {
 
 		VAL::goal* goal = problem->the_goal;
-		(*out) << "(assert " << parseCondition(goal,h) << ")" << std::endl;
+		(*out) << "(assert " << parseCondition(goal,h,1) << ")" << std::endl;
 	}
 
 	/*-------------------*/
@@ -140,34 +143,166 @@ namespace SMTPlan {
 	/*-------------------*/
 
 	/**
-	 * Constraints H1--H6 & P5--P6 (A Compilation of the Full PDDL+ Language into SMT)
+	 * Constraints H1--H6 (A Compilation of the Full PDDL+ Language into SMT)
 	 * Encodes variable support for propositions and real values variables, in the form of explanatory frame axioms.
 	 */
-	void Encoder::encodeVariableSupport(VAL::domain* domain, VAL::problem* problem, Grounder &grounder, int h) {
+	void Encoder::encodeHappeningVariableSupport(VAL::domain* domain, VAL::problem* problem, Grounder &grounder, int h) {
 
-		if(h<1) return;
+		// explanatory frame axioms in happening;
+		for (int i=0; i<grounder.props.size(); i++) {
 
-		// explanatory frame axioms
+			// remain TRUE
+			(*out) << "(assert (=> " << grounder.props[i].var_name << "_1_" << h << " ";
+			if((grounder.props[i].sta_add_actions|grounder.props[i].end_add_actions).any()) {
+				(*out) << "(or";
+				for(int a=0;a<MAX_BITSET;a++) {
+					if(grounder.props[i].sta_add_actions[a])
+						(*out) << " sta_" << grounder.actions[a].var_name << "_" << h;
+					if(grounder.props[i].end_add_actions[a])
+						(*out) << " end_" << grounder.actions[a].var_name << "_" << h;
+				}
+				(*out) << " " << grounder.props[i].var_name << "_0_" << h << ")";
+			} else {
+				(*out) << grounder.props[i].var_name << "_0_" << h;
+			}
+			(*out) << "))" << std::endl;
+
+			// remain FALSE
+			(*out) << "(assert (=> (not " << grounder.props[i].var_name << "_1_" << h << ") ";
+			if((grounder.props[i].sta_del_actions|grounder.props[i].end_del_actions).any()) {
+				(*out) << "(or";
+				for(int a=0;a<MAX_BITSET;a++) {
+					if(grounder.props[i].sta_del_actions[a])
+						(*out) << " sta_" << grounder.actions[a].var_name << "_" << h;
+					if(grounder.props[i].end_del_actions[a])
+						(*out) << " end_" << grounder.actions[a].var_name << "_" << h;
+				}
+				(*out) << " (not " << grounder.props[i].var_name << "_0_" << h << "))";
+			} else {
+				(*out) << " (not " << grounder.props[i].var_name << "_0_" << h << ")";
+			}
+			(*out) << "))" << std::endl;
+		}
+
+		// fixed numeric variables in happening
+		for (int i=0; i<grounder.fluents.size(); i++) {
+			(*out) << "(assert (= "
+					<< grounder.fluents[i].var_name << "_1_" << h << " "
+					<< grounder.fluents[i].var_name << "_0_" << h
+					<< " ))" << std::endl;
+		}
+	}
+
+	/**
+	 * Constraints P5--P6 (A Compilation of the Full PDDL+ Language into SMT)
+	 * Encodes variable support for propositions and real values variables, in the form of explanatory frame axioms.
+	 */
+	void Encoder::encodeIntervalVariableSupport(VAL::domain* domain, VAL::problem* problem, Grounder &grounder, int h) {
+
+		if(h<=0) return;
+
+		// explanatory frame axioms between happenings
 		for (int i=0; i<grounder.props.size(); i++) {
 			(*out) << "(assert (=> "
-					<< grounder.props[i].var_name << "_0_" << h
+					<< grounder.props[i].var_name << "_0_" << h << " "
 					<< grounder.props[i].var_name << "_1_" << (h-1)
 					<< " ))" << std::endl;
 		}
+		for (int i=0; i<grounder.props.size(); i++) {
+			(*out) << "(assert (=> "
+					<< "(not " << grounder.props[i].var_name << "_0_" << h << ") "
+					<< "(not " << grounder.props[i].var_name << "_1_" << (h-1) << ")"
+					<< " ))" << std::endl;
+		}
 
-		// fixed numeric variables
+		// fixed numeric variables between happenings
 		for (int i=0; i<grounder.fluents.size(); i++) {
 			(*out) << "(assert (= "
-					<< grounder.fluents[i].var_name << "_0_" << h
+					<< grounder.fluents[i].var_name << "_0_" << h << " "
 					<< grounder.fluents[i].var_name << "_1_" << (h-1)
 					<< " ))" << std::endl;
 		}
-		
 	}
 
 	/*---------*/
 	/* actions */
 	/*---------*/
+
+	/**
+	 * Constraints H13--15 & P7 (A Compilation of the Full PDDL+ Language into SMT)
+	 * Encodes action support.
+	 */
+	void Encoder::encodeActionDurations(VAL::domain* domain, VAL::problem* problem, Grounder &grounder, int h) {
+
+		// operators
+		VAL::operator_list* operators = domain->ops;
+		for (VAL::operator_list::const_iterator ci = operators->begin(); ci != operators->end(); ci++) {
+			const VAL::operator_* op = (*ci);
+			const std::string name = op->name->symbol::getName();
+
+			// if no actions, skip operator
+			if(grounder.op_action_map[name].size() == 0)
+				continue;
+
+			// for each action of this operator
+			std::vector<PDDLDurativeAction>::iterator ait = grounder.op_action_map[name].begin();
+			for(; ait!=grounder.op_action_map[name].end(); ait++) {
+				PDDLDurativeAction action = (*ait);
+
+				// running action/process iff (remaining duration > 0)
+				(*out) << "(assert (=> " << "run_" << action.var_name << "_" << h << " "
+						<< "(> dur_" << action.var_name << "_" << h << " 0)))" << std::endl;
+				(*out) << "(assert (=> " << "(not run_" << action.var_name << "_" << h << ") "
+						<< "(= dur_" << action.var_name << "_" << h << " 0)))" << std::endl;
+
+				// remaining duration (i) = remaining duration (i-1) - duration (i)
+				if(h>0) {
+					(*out) << "(assert (=> " << "run_" << action.var_name << "_" << (h-1) << " "
+						<< "(= " << "dur_" << action.var_name << "_" << h << " "
+						<< "(- dur_" << action.var_name << "_" << (h-1) << " duration_" << (h-1) << "))))" << std::endl;
+				}
+
+				// ground duration
+				std::stringstream ss;
+				ss << "dur_" << action.var_name << "_" << h;
+				std::string duration = action.unground_duration;
+				findReplace(duration, action.param_object);
+				addHappeningTags(duration, 0, h);
+				std::string find("duration");
+				std::string replace(ss.str());
+				findReplace(duration, find, replace);
+
+				// remaining duration = action duration
+				(*out) << "(assert (=> " << "sta_" << action.var_name << "_" << h << " " << duration << "))" << std::endl;
+				(*out) << "(assert (=> " << "end_" << action.var_name << "_" << h << " "
+					<< "(= " << "dur_" << action.var_name << "_" << h << " 0)))" << std::endl;
+
+				// start->run->end
+				if(h>0) {
+					(*out) << "(assert (=> " << "end_" << action.var_name << "_" << h << " " << "run_" << action.var_name << "_" << (h-1) << "))" << std::endl;
+					(*out) << "(assert (=> " << "sta_" << action.var_name << "_" << h << " (not " << "run_" << action.var_name << "_" << (h-1) << ")))" << std::endl;
+
+					(*out) << "(assert (=> " << "run_" << action.var_name << "_" << h << " (or"
+							<< " " << "sta_" << action.var_name << "_" << h
+							<< " " << "run_" << action.var_name << "_" << (h-1)
+							<< ")))" << std::endl;
+
+					(*out) << "(assert (=> " << "(not run_" << action.var_name << "_" << h << ") (or"
+							<< " " << "end_" << action.var_name << "_" << h
+							<< " " << "(not run_" << action.var_name << "_" << (h-1)
+							<< "))))" << std::endl;
+				} else {
+					(*out) << "(assert (not end_" << action.var_name << "_" << h << "))" << std::endl;
+					(*out) << "(assert (=> " << "run_" << action.var_name << "_" << h
+							<< " " << "sta_" << action.var_name << "_" << h
+							<< "))" << std::endl;
+					(*out) << "(assert (=> " << "(not run_" << action.var_name << "_" << h << ")"
+							<< " " << "(not sta_" << action.var_name << "_" << h << ")"
+							<< "))" << std::endl;
+				}
+			}
+		}
+	}
 
 	/**
 	 * Constraints H9 (A Compilation of the Full PDDL+ Language into SMT)
@@ -183,17 +318,17 @@ namespace SMTPlan {
 			const std::string name = op->name->symbol::getName();
 
 			// if no actions, skip operator
-			if(grounder.action_map[name].size() == 0)
+			if(grounder.op_action_map[name].size() == 0)
 				continue;
 
 			// ungrounded conditions
-			std::string c_start = parseTimedCondition(condition, VAL::E_AT_START, h);
-			std::string c_end = parseTimedCondition(condition, VAL::E_AT_END, h);
-			std::string c_overall = parseTimedCondition(condition, VAL::E_OVER_ALL, h);
+			std::string c_start = parseTimedCondition(condition, VAL::E_AT_START, h, 0);
+			std::string c_end = parseTimedCondition(condition, VAL::E_AT_END, h, 0);
+			std::string c_overall = parseTimedCondition(condition, VAL::E_OVER_ALL, h, 0);
 
 			// for each action of this operator
-			std::vector<PDDLDurativeAction>::iterator ait = grounder.action_map[name].begin();
-			for(; ait!=grounder.action_map[name].end(); ait++) {
+			std::vector<PDDLDurativeAction>::iterator ait = grounder.op_action_map[name].begin();
+			for(; ait!=grounder.op_action_map[name].end(); ait++) {
 				PDDLDurativeAction action = (*ait);
 
 				if(c_start.length()>0) {
@@ -232,7 +367,7 @@ namespace SMTPlan {
 			const std::string name = op->name->symbol::getName();
 
 			// if no actions, skip operator
-			if(grounder.action_map[name].size() == 0)
+			if(grounder.op_action_map[name].size() == 0)
 				continue;
 
 			// timed effects
@@ -240,8 +375,8 @@ namespace SMTPlan {
 				const VAL::timed_effect* effect = *ci;
 
 
-				std::vector<PDDLDurativeAction>::iterator ait = grounder.action_map[name].begin();
-				for(; ait!=grounder.action_map[name].end(); ait++) {
+				std::vector<PDDLDurativeAction>::iterator ait = grounder.op_action_map[name].begin();
+				for(; ait!=grounder.op_action_map[name].end(); ait++) {
 					PDDLDurativeAction action = (*ait);
 
 					std::stringstream ss;					
@@ -325,7 +460,7 @@ namespace SMTPlan {
 	/**
 	 * parse an expression recursively.
 	 */
-	std::string Encoder::parseExpression(const VAL::expression* exp, int h) {
+	std::string Encoder::parseExpression(const VAL::expression* exp, int h, int b) {
 
 		std::stringstream ss;
 
@@ -339,7 +474,7 @@ namespace SMTPlan {
 		// unit minus
 		const VAL::uminus_expression* ume = dynamic_cast<const VAL::uminus_expression*>(exp);
 		if (ume) {
-			ss << "(- 0 " << parseExpression(ume->getExpr(),h) << ")";
+			ss << "(- 0 " << parseExpression(ume->getExpr(),h,b) << ")";
 			return ss.str();
 		}
 
@@ -351,15 +486,15 @@ namespace SMTPlan {
 				const VAL::parameter_symbol* var = *vi;
 				ss << "_" << var->getName();
 			}
-			ss << "_0_" << h;
+			ss << "_" << b << "_" << h;
 			return ss.str();
 		}
 
 		// binary expressions
 		const VAL::binary_expression* be = dynamic_cast<const VAL::binary_expression*>(exp);
 		if (be) {
-			std::string lhs = parseExpression(be->getLHS(),h);
-			std::string rhs = parseExpression(be->getRHS(),h);
+			std::string lhs = parseExpression(be->getLHS(),h,b);
+			std::string rhs = parseExpression(be->getRHS(),h,b);
 
 			// plus
 			const VAL::plus_expression* pe = dynamic_cast<const VAL::plus_expression*>(exp);
@@ -393,7 +528,7 @@ namespace SMTPlan {
 	/**
 	 * parse a condition recursively.
 	 */
-	std::string Encoder::parseCondition(const VAL::goal* goal, int h) {
+	std::string Encoder::parseCondition(const VAL::goal* goal, int h, int b) {
 
 		std::stringstream ss;
 		
@@ -406,7 +541,7 @@ namespace SMTPlan {
 				const VAL::parameter_symbol* var = *vi;
 				ss << "_" << var->getName();
 			}
-			ss << "_0_" << h;
+			ss << "_" << b << "_" << h;
 			return ss.str();
 		}
 
@@ -421,14 +556,14 @@ namespace SMTPlan {
 				case VAL::E_LESS: ss << "< "; break;
 				case VAL::E_LESSEQ: ss << ">= "; break;
 			};
-			ss << parseExpression(co->getLHS(),h) << " " << parseExpression(co->getRHS(),h) << ")";
+			ss << parseExpression(co->getLHS(),h,b) << " " << parseExpression(co->getRHS(),h,b) << ")";
 			return ss.str();
 		}
 
 		// negative condition
 		const VAL::neg_goal* ng = dynamic_cast<const VAL::neg_goal*>(goal);
 		if (ng) {
-			ss << "(not " << parseCondition(ng->getGoal(),h) << ")";
+			ss << "(not " << parseCondition(ng->getGoal(),h,b) << ")";
 			return ss.str();
 		}
 
@@ -438,7 +573,7 @@ namespace SMTPlan {
 			ss << "(and";
 		        const VAL::goal_list* goals = cg->getGoals();
 		        for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
-				ss << " " << parseCondition((*ci),h);
+				ss << " " << parseCondition((*ci),h,b);
 			}
 			ss << ")";
 			return ss.str();
@@ -450,7 +585,7 @@ namespace SMTPlan {
 			ss << "(or";
 		        const VAL::goal_list* goals = dg->getGoals();
 		        for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
-				ss << " " << parseCondition((*ci),h);
+				ss << " " << parseCondition((*ci),h,b);
 			}
 			ss << ")";
 			return ss.str();
@@ -462,7 +597,7 @@ namespace SMTPlan {
 	/**
 	 * parse a condition recursively, only retrieving a timed part
 	 */
-	std::string Encoder::parseTimedCondition(const VAL::goal* goal, VAL::time_spec part, int h) {
+	std::string Encoder::parseTimedCondition(const VAL::goal* goal, VAL::time_spec part, int h, int b) {
 
 		std::stringstream ss;
 
@@ -472,7 +607,7 @@ namespace SMTPlan {
 			ss << "(and";
 		        const VAL::goal_list* goals = cg->getGoals();
 		        for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
-				std::string c = parseTimedCondition((*ci),part,h);
+				std::string c = parseTimedCondition((*ci),part,h,b);
 				if(c.length()>0) ss << " " << c;
 			}
 			ss << ")";
@@ -486,7 +621,7 @@ namespace SMTPlan {
 			ss << "(or";
 		        const VAL::goal_list* goals = dg->getGoals();
 		        for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
-				std::string c = parseTimedCondition((*ci),part,h);
+				std::string c = parseTimedCondition((*ci),part,h,b);
 				if(c.length()>0) ss << " " << c;
 			}
 			ss << ")";
@@ -499,7 +634,7 @@ namespace SMTPlan {
 		const VAL::timed_goal* tg = dynamic_cast<const VAL::timed_goal*>(goal);
 		if (tg) {
 			if(tg->getTime() == part) {
-				return parseCondition(tg->getGoal(),h);
+				return parseCondition(tg->getGoal(),h,b);
 			} else {
 				return "";
 			}

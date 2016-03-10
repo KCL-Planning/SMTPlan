@@ -125,10 +125,9 @@ int main (int argc, char *argv[]) {
 		return 1;
 	}
 
-//	TIM::performTIMAnalysis(&argv[1]);
-
 	SMTPlan::Grounder grounder;
 	grounder.ground(parser.getDomain(), parser.getProblem(), options);
+	grounder.parseInitialState(parser.getProblem());
 
 	// set output
 	SMTPlan::Encoder encoder;

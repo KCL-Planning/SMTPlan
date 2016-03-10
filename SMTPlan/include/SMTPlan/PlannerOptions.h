@@ -4,6 +4,8 @@
 #ifndef KCL_options
 #define KCL_options
 
+#define MAX_BITSET 65536
+
 #include <string>
 
 namespace SMTPlan
