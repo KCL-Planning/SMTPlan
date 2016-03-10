@@ -7,7 +7,7 @@ namespace SMTPlan {
 	bool Grounder::isTypeOf(const VAL::pddl_type* a, const VAL::pddl_type* b) {
 		if(a->getName() == b->getName())
 			return true;
-		if(a->type == NULL)
+		if(a->type == NULL || a->getName() == "object")
 			return false;
 		return isTypeOf(a->type, b);
 	}
@@ -18,7 +18,7 @@ namespace SMTPlan {
 		if(grounded) return true;
 
 		groundProps(domain, problem, options);
-		//groundFluents(domain, problem, options);
+		groundFluents(domain, problem, options);
 		groundActions(domain, problem, options);
 
 		grounded = true;
