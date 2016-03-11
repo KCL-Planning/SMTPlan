@@ -4,7 +4,7 @@
 #ifndef KCL_options
 #define KCL_options
 
-#define MAX_BITSET 65536
+#define MAX_BITSET 100000
 
 #include <string>
 
@@ -27,11 +27,13 @@ namespace SMTPlan
 
 		// encoding options
 		bool explanatory_var_names;
+		bool prune;
 
 		// solving options
 		bool solve;
 
 		// iterative deepening
+		bool rpg_lower_bound;
 		int lower_bound;
 		int upper_bound;
 		int step_size;

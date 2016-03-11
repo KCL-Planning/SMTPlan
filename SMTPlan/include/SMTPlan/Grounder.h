@@ -105,6 +105,9 @@ namespace SMTPlan
 		void groundActionEffects(VAL::domain* domain, VAL::problem* problem, const VAL::operator_* op, PDDLDurativeAction &action);
 		void groundActionDuration(VAL::domain* domain, VAL::problem* problem, const VAL::operator_* op, PDDLDurativeAction &action);
 
+		void groundTimedActionCondition(PDDLDurativeAction &action, const VAL::goal* goal, VAL::time_spec part);
+		void groundActionCondition(PDDLDurativeAction &action, const VAL::goal* goal);
+
 		void copyFormula(PDDLAtomicFormula &oldProp, PDDLAtomicFormula &newProp);
 		void copyDurativeAction(PDDLDurativeAction &oldact, PDDLDurativeAction &newact);
 

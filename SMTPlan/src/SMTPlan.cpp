@@ -8,6 +8,7 @@
 #include "SMTPlan/Parser.h"
 #include "SMTPlan/Grounder.h"
 #include "SMTPlan/Encoder.h"
+#include "SMTPlan/RPGPruner.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +19,9 @@
 int number_of_arguments = 7;
 SMTPlan::Argument argument[] = {
 	{"-h",	false,	"\tPrint this and exit."},
+	{"-p",	false,	"\tUse the RPG reachability analysis to prune variables."},
 	{"-l",	true,	"number\tBegin iterative deepening at an encoding with l happenings (default 1)."},
+	{"-r",	false,	"\tUse the RPG reachability analysis to determine the starting bound on hapenings."},
 	{"-u",	true,	"number\tRun iterative deepening until the u is reached. Set -1 for unlimited (default -1)."},
 	{"-s",	true,	"number\tIteratively deepen with a step size of s (default 1)."},
 	{"-o",	true,	"path\tSave encodings to file in smt2 format."},
@@ -52,6 +55,8 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 	options.lower_bound = 1;
 	options.upper_bound = -1;
 	options.step_size = 1;
+	options.prune = false;
+	options.rpg_lower_bound = false;
 
 	// read arguments
 	for(int i=3;i<argc; i++) {
@@ -85,6 +90,10 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 				options.encoding_path = argv[i];
 			} else if(argument[j].name == "-n") {
 				options.solve = false;
+			} else if(argument[j].name == "-p") {
+				options.prune = true;
+			} else if(argument[j].name == "-r") {
+				options.rpg_lower_bound = true;
 			} else if(argument[j].name == "-e") {
 				options.explanatory_var_names = true;
 			}
@@ -125,29 +134,44 @@ int main (int argc, char *argv[]) {
 		return 1;
 	}
 
+	// ground problem
 	SMTPlan::Grounder grounder;
 	grounder.ground(parser.getDomain(), parser.getProblem(), options);
 	grounder.parseInitialState(parser.getProblem());
 
-	// set output
-	SMTPlan::Encoder encoder;
-	std::ofstream pFile;
-	if(options.encoding_path == "") {
-		encoder.setOutput(std::cout);
-	} else {
-		pFile.open((options.encoding_path).c_str());
-		if (!pFile.is_open() || pFile.fail() || pFile.bad()) {
-			std::cerr << "Unable to open file for output: " << options.encoding_path << std::endl;
-			return 1;
+	// build RPG to prune propositions and actions
+	SMTPlan::RPGPruner pruner;
+	pruner.build(grounder, options);
+
+	// begin search loop
+	options.encoding_path = "test.smt2";
+	for(int i=options.lower_bound; (options.upper_bound<0 || i<=options.upper_bound); i++) {
+
+		// set output
+		SMTPlan::Encoder encoder;
+		std::ofstream pFile;
+		if(options.encoding_path == "") {
+			encoder.setOutput(std::cout);
+		} else {
+			pFile.open((options.encoding_path).c_str());
+			if (!pFile.is_open() || pFile.fail() || pFile.bad()) {
+				std::cerr << "Unable to open file for output: " << options.encoding_path << std::endl;
+				return 1;
+			}
+			encoder.setOutput(pFile);
 		}
-		encoder.setOutput(pFile);
+
+		// generate encoding
+		encoder.encode(parser.getDomain(), parser.getProblem(), grounder, i);
+
+		// close file if open
+		if (!pFile.is_open()) pFile.close();
+
+		if(system("z3 test.smt2 | paste -sd ' \n' | egrep 'true|duration' | egrep 'sta|duration'") == 0) return 0;
+
 	}
 
-	// generate encoding
-	encoder.encode(parser.getDomain(), parser.getProblem(), grounder, options.lower_bound);
-
-	// close file if open
-	if (!pFile.is_open()) pFile.close();
+	std::cout << "No plan found in " << options.upper_bound << " happenings" << std::endl;
 
 	return 0;
 }

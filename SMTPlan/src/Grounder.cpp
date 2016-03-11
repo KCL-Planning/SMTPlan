@@ -144,41 +144,10 @@ namespace SMTPlan {
 		const VAL::goal* condition = op->precondition;
 		const std::string name = op->name->symbol::getName();
 
-		// fetch ungrounded conditions
-		std::string c_start = parseTimedCondition(condition, VAL::E_AT_START);
-		std::string c_end = parseTimedCondition(condition, VAL::E_AT_END);
-		std::string c_overall = parseTimedCondition(condition, VAL::E_OVER_ALL);
+		groundTimedActionCondition(action, condition, VAL::E_AT_START);
+		groundTimedActionCondition(action, condition, VAL::E_AT_END);
+		groundTimedActionCondition(action, condition, VAL::E_OVER_ALL);
 
-		if(c_start.length()>0) {
-			std::string gc_start = c_start;
-			// bind params
-			findReplace(gc_start, action.param_object);
-			std::map<std::string,std::vector<PDDLAtomicFormula>::size_type>::iterator pit = string_prop_map.find(gc_start);
-			if(pit!=string_prop_map.end()) {
-				action.sta_simple_conditions.set(pit->second);
-				props[pit->second].sta_condition_actions.set(action.index);
-			}
-		}
-
-		else if(c_end.length()>0) {
-			std::string gc_end = c_end;
-			findReplace(gc_end, action.param_object);
-			std::map<std::string,std::vector<PDDLAtomicFormula>::size_type>::iterator pit = string_prop_map.find(gc_end);
-			if(pit!=string_prop_map.end()) {
-				action.end_simple_conditions.set(pit->second);
-				props[pit->second].end_condition_actions.set(action.index);
-			}
-		}
-
-		else if(c_overall.length()>0) {
-			std::string gc_overall = c_overall;
-			findReplace(gc_overall, action.param_object);
-			std::map<std::string,std::vector<PDDLAtomicFormula>::size_type>::iterator pit = string_prop_map.find(gc_overall);
-			if(pit!=string_prop_map.end()) {
-				action.dur_simple_conditions.set(pit->second);
-				props[pit->second].dur_condition_actions.set(action.index);
-			}
-		}
 	}
 
 	void Grounder::groundActionEffects(VAL::domain* domain, VAL::problem* problem, const VAL::operator_* op, PDDLDurativeAction &action) {
@@ -243,6 +212,84 @@ namespace SMTPlan {
 						break;
 					}
 				}
+			}
+		}
+	}
+
+	/**
+	 * ground a condition into an action recursively. Condition types:
+	 * simple_goal; qfied_goal;
+	 * conj_goal; disj_goal; imply_goal;
+	 * neg_goal; timed_goal; comparison;
+	 */
+	void Grounder::groundActionCondition(PDDLDurativeAction &action, const VAL::goal* goal) {
+	
+		// simple proposition (base case 1)
+		const VAL::simple_goal* sg = dynamic_cast<const VAL::simple_goal*>(goal);
+		if (sg) {
+			const VAL::proposition* prop = sg->getProp();
+			std::stringstream ss;
+			ss << prop->head->getName();
+			for (VAL::parameter_symbol_list::const_iterator vi = prop->args->begin(); vi != prop->args->end(); vi++) {			
+				const VAL::parameter_symbol* var = *vi;
+				ss << "_" << var->getName();
+			}
+			std::string propName = ss.str();
+			findReplace(propName, action.param_object);
+			std::map<std::string,std::vector<PDDLAtomicFormula>::size_type>::iterator pit = string_prop_map.find(propName);
+			if(pit!=string_prop_map.end()) {
+				action.sta_simple_conditions.set(pit->second);
+				props[pit->second].sta_condition_actions.set(action.index);
+			}
+		}
+
+		// conjunctive condition
+		const VAL::conj_goal* cg = dynamic_cast<const VAL::conj_goal*>(goal);
+		if (cg) {
+			const VAL::goal_list* goals = cg->getGoals();
+			for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
+				groundActionCondition(action, goal);
+			}
+		}
+
+		// disjunctive condition
+		const VAL::disj_goal* dg = dynamic_cast<const VAL::disj_goal*>(goal);
+		if (dg) {
+			const VAL::goal_list* goals = cg->getGoals();
+			for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
+				groundActionCondition(action, goal);
+			}
+		}
+	}
+
+	/**
+	 * parse a condition recursively, only retrieving a timed part
+	 */
+	void Grounder::groundTimedActionCondition(PDDLDurativeAction &action, const VAL::goal* goal, VAL::time_spec part) {
+
+		// conjunctive condition
+		const VAL::conj_goal* cg = dynamic_cast<const VAL::conj_goal*>(goal);
+		if (cg) {
+			const VAL::goal_list* goals = cg->getGoals();
+			for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
+				groundTimedActionCondition(action, (*ci), part);
+			}
+		}
+
+		// disjunctive condition
+		const VAL::disj_goal* dg = dynamic_cast<const VAL::disj_goal*>(goal);
+		if (dg) {
+			const VAL::goal_list* goals = dg->getGoals();
+			for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++) {
+				groundTimedActionCondition(action, (*ci), part);
+			}
+		}
+
+		// timed condition
+		const VAL::timed_goal* tg = dynamic_cast<const VAL::timed_goal*>(goal);
+		if (tg) {
+			if(tg->getTime() == part) {
+				groundActionCondition(action,tg->getGoal());
 			}
 		}
 	}
@@ -376,8 +423,9 @@ namespace SMTPlan {
 				for(int i=0; i< prop.param_names.size(); i++)
 					ss << "_" << prop.param_names[i];
 				newProp.var_name = ss.str();
+				newProp.index = (props.size());
+
 				props.push_back(newProp);
-				newProp.index = (props.size()-1);
 				string_prop_map[newProp.var_name] = (props.size()-1);
 				pred_prop_map[prop.name].push_back(newProp);
 				groundingProps.pop_front();

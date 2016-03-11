@@ -155,7 +155,7 @@ namespace SMTPlan {
 			(*out) << "(assert (=> " << grounder.props[i].var_name << "_1_" << h << " ";
 			if((grounder.props[i].sta_add_actions|grounder.props[i].end_add_actions).any()) {
 				(*out) << "(or";
-				for(int a=0;a<MAX_BITSET;a++) {
+				for(int a=0;a<grounder.actions.size();a++) {
 					if(grounder.props[i].sta_add_actions[a])
 						(*out) << " sta_" << grounder.actions[a].var_name << "_" << h;
 					if(grounder.props[i].end_add_actions[a])
@@ -171,7 +171,7 @@ namespace SMTPlan {
 			(*out) << "(assert (=> (not " << grounder.props[i].var_name << "_1_" << h << ") ";
 			if((grounder.props[i].sta_del_actions|grounder.props[i].end_del_actions).any()) {
 				(*out) << "(or";
-				for(int a=0;a<MAX_BITSET;a++) {
+				for(int a=0;a<grounder.actions.size();a++) {
 					if(grounder.props[i].sta_del_actions[a])
 						(*out) << " sta_" << grounder.actions[a].var_name << "_" << h;
 					if(grounder.props[i].end_del_actions[a])
