@@ -37,12 +37,12 @@ of tanks is increased while decreasing the initial fuel level.
 <p><strong>Non-linear Generator</strong></p>
 
 <p><strong>Generator (Toricelli)</strong></p>
-This version uses the Torricelli’s Law, and hence the fuel level in a refuelling tank (V<sub>fuel</sub>) is calculated by:<br>
+<p>This version uses the Torricelli’s Law, and hence the fuel level in a refuelling tank (V<sub>fuel</sub>) is calculated by:</p>
 <img src="images/dynamics.png" alt="OK" style="height:90px;"><br>
-where V init is the initial volume of fuel in the tank, k is the fuel flow constant (which depends on gravity, size of the
+<p>where V init is the initial volume of fuel in the tank, k is the fuel flow constant (which depends on gravity, size of the
 drain hole, and the cross-section of the tank), and t<sub>r</sub> is the time of refueling (bounded by the fuel level and the flow
 constant).<br>
-Here is an example of plan found by SMTPlan+ for the Torricelli nonlinear generator:
+Here is an example of plan found by SMTPlan+ for the Torricelli nonlinear generator:</p>
 
 <p>0.0: generate [1000.0]<br>
 959.0: refuel_tank1 [10.0]<br>
