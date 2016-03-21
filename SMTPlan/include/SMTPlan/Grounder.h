@@ -111,6 +111,9 @@ namespace SMTPlan
 		void copyFormula(PDDLAtomicFormula &oldProp, PDDLAtomicFormula &newProp);
 		void copyDurativeAction(PDDLDurativeAction &oldact, PDDLDurativeAction &newact);
 
+		void parseInitialState(VAL::problem* problem);
+		void parseGoalState(VAL::goal* goal);
+
 	public:
 
 		/* constructor */
@@ -123,6 +126,7 @@ namespace SMTPlan
 
 		/* bitsets */
 		std::bitset<MAX_BITSET> initial_state;
+		std::bitset<MAX_BITSET> simple_goal_state;
 
 		/* maps */
 		std::map<std::string,std::vector<PDDLProposition> > pred_prop_map;
@@ -132,7 +136,6 @@ namespace SMTPlan
 		/* grounding method */
 		bool grounded;
 		bool ground(VAL::domain* domain, VAL::problem* problem, PlannerOptions &options);
-		void parseInitialState(VAL::problem* problem);
 	};
 
 } // close namespace

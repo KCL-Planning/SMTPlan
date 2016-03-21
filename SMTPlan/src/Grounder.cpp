@@ -21,6 +21,10 @@ namespace SMTPlan {
 		groundFluents(domain, problem, options);
 		groundActions(domain, problem, options);
 
+		parseInitialState(problem);
+		simple_goal_state.reset();
+		parseGoalState(problem->the_goal);
+
 		grounded = true;
 		return true;
 	}
@@ -456,6 +460,34 @@ namespace SMTPlan {
 				ss << "_" << var->getName();
 			}			
 			initial_state.set(string_prop_map[ss.str()]);
+		}
+	}
+
+	/** 
+	 * save the discrete part of the goal state as a bitset
+	 */
+	void Grounder::parseGoalState(VAL::goal* goal) {
+
+		// simple proposition (base case 1)
+		const VAL::simple_goal* sg = dynamic_cast<const VAL::simple_goal*>(goal);
+		if (sg) {
+			const VAL::proposition* prop = sg->getProp();
+
+			std::stringstream ss;
+			ss << prop->head->getName();
+			for (VAL::parameter_symbol_list::const_iterator vi = prop->args->begin(); vi != prop->args->end(); vi++) {			
+				const VAL::parameter_symbol* var = *vi;
+				ss << "_" << var->getName();
+			}
+			simple_goal_state.set(string_prop_map[ss.str()]);
+		}
+
+		// conjunctive condition
+		const VAL::conj_goal* cg = dynamic_cast<const VAL::conj_goal*>(goal);
+		if (cg) {
+	        const VAL::goal_list* goals = cg->getGoals();
+	        for (VAL::goal_list::const_iterator ci = goals->begin(); ci != goals->end(); ci++)
+				parseGoalState((*ci));
 		}
 	}
 

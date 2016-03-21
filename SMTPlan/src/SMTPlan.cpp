@@ -108,6 +108,25 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 	return true;
 }
 
+/*-------*/
+/* timer */
+/*-------*/
+
+std::clock_t last;
+
+double getElapsed() {
+
+    double duration = ( std::clock() - last ) / (double) CLOCKS_PER_SEC;
+    last = std::clock();
+	return duration;
+}
+
+double getTotalElapsed() {
+
+    double duration = ( std::clock() ) / (double) CLOCKS_PER_SEC;
+	return duration;
+}
+
 /*-------------*/
 /* main method */
 /*-------------*/
@@ -127,6 +146,8 @@ int main (int argc, char *argv[]) {
 		return 1;
 	}
 
+    getElapsed();
+
 	// parse domain and problem
 	SMTPlan::Parser parser;
 	if(!parser.parseDomain(options.domain_path) || !parser.parseProblem(options.problem_path)) {
@@ -134,14 +155,21 @@ int main (int argc, char *argv[]) {
 		return 1;
 	}
 
+	fprintf(stdout,"Parsed:\t%f seconds\n", getElapsed());
+
 	// ground problem
 	SMTPlan::Grounder grounder;
 	grounder.ground(parser.getDomain(), parser.getProblem(), options);
-	grounder.parseInitialState(parser.getProblem());
+
+	fprintf(stdout,"Grounded:\t%f seconds\n", getElapsed());
 
 	// build RPG to prune propositions and actions
 	SMTPlan::RPGPruner pruner;
 	pruner.build(grounder, options);
+	if(options.rpg_lower_bound)
+		options.lower_bound = pruner.goal_layer;
+
+	fprintf(stdout,"RPG built:\t%f seconds\n", getElapsed());
 
 	// begin search loop
 	options.encoding_path = "test.smt2";
@@ -164,14 +192,23 @@ int main (int argc, char *argv[]) {
 		// generate encoding
 		encoder.encode(parser.getDomain(), parser.getProblem(), grounder, i);
 
+		fprintf(stdout,"Encoded %i:\t%f seconds\n", i, getElapsed());
+
 		// close file if open
 		if (!pFile.is_open()) pFile.close();
 
-		if(system("z3 test.smt2 | paste -sd ' \n' | egrep 'true|duration' | egrep 'sta|duration'") == 0) return 0;
+		if(system("z3 test.smt2 | paste -sd ' \n' | egrep 'true|duration' | egrep 'sta|duration'") == 0) {
+			fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
+			fprintf(stdout,"Total time:\t%f seconds\n", getTotalElapsed());
+			return 0;
+		}
+
+		fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
 
 	}
 
 	std::cout << "No plan found in " << options.upper_bound << " happenings" << std::endl;
+	fprintf(stdout,"Total time:\t%f seconds\n", getTotalElapsed());
 
 	return 0;
 }

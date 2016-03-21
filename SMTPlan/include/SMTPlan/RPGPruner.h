@@ -33,7 +33,10 @@ namespace SMTPlan
 	public:
 
 		/* constructor */
-		RPGPruner() : built(false) {}
+		RPGPruner() : built(false), goal_layer(-1) {}
+
+		/* tree info */
+		int goal_layer;
 
 		/* bitsets */
 		std::vector<std::bitset<MAX_BITSET> > fact_layers;

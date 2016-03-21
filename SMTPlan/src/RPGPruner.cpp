@@ -8,6 +8,7 @@ namespace SMTPlan {
 	 */
 	bool RPGPruner::build(Grounder &grounder, PlannerOptions &options) {
 
+		goal_layer = -1;
 		bool finished = false;
 
 		while(!finished) {
@@ -19,8 +20,6 @@ namespace SMTPlan {
 			prune(grounder);
 		}
 	}
-
-	// TODO THE CONDITIONS AND EFFECTS ARE ALL WRONG NOW THAT THE INDEXES HAVE CHANGED!! 
 
 	/**
 	 * prune away the unreachable state from the grounder
@@ -121,12 +120,14 @@ namespace SMTPlan {
 			pit->end_condition_actions = eca;
 		}
 		
-		// fix bitset refs in initial state
-		std::bitset<MAX_BITSET> is;
+		// fix bitset refs in initial state and goal
+		std::bitset<MAX_BITSET> is, gs;
 		for(int i=0; i<grounder.props.size(); i++) {
 			if(grounder.initial_state.test(i)) is.set(prop_index_map[i]);
+			if(grounder.simple_goal_state.test(i)) gs.set(prop_index_map[i]);
 		}
 		grounder.initial_state = is;
+		grounder.simple_goal_state = gs;
 	
 		std::cout << "pruned:" <<std::endl;
 		std::cout << (grounder.actions.size() - newActions.size()) << " actions" <<std::endl;
@@ -175,8 +176,8 @@ namespace SMTPlan {
 	}
 
 	/**
-	 * add a action layer at layer to the tree
-	 * return if there is a new action
+	 * add a layer to the tree
+	 * return if there is a change
 	 */
 	bool RPGPruner::buildLayer(Grounder &grounder, PlannerOptions &options) {
 
@@ -226,8 +227,14 @@ namespace SMTPlan {
 			}
 		}
 
+		// save new layers
 		action_layers.push_back(actionLayer);
 		fact_layers.push_back(factLayer);
+
+		// check for goal
+		if(goal_layer<0 && ((grounder.simple_goal_state & factLayer) ^ (grounder.simple_goal_state)).none()) {
+			goal_layer = fact_layers.size();
+		}
 
 		return change;
 	}
