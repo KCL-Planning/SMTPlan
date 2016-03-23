@@ -3,6 +3,19 @@
 /* implementation of SMTPlan::Encoder */
 namespace SMTPlan {
 
+		/* encoding state */
+		int upper_bound;
+
+		int enc_litID;
+		int enc_pneID;
+		int enc_opID;
+
+		bool enc_cond_neg;
+		bool enc_eff_neg;
+		VAL::time_spec enc_cond_time;
+		VAL::time_spec enc_eff_time;
+		VAL::comparison_op enc_comparison_op;
+
 	/**
 	 * sets the output stream for writing to file/stdout
 	 */
@@ -45,6 +58,8 @@ namespace SMTPlan {
 		const int litCount = Inst::instantiatedOp::howManyLiterals();
 		const int actCount = Inst::instantiatedOp::howMany();
 
+		actionMutualExclusions = std::vector<bool>(actCount*actCount);
+
 		simpleStartAddEffects = std::vector<std::list<int> >(litCount);
 		simpleStartDelEffects = std::vector<std::list<int> >(litCount);
 		simpleEndAddEffects = std::vector<std::list<int> >(litCount);
@@ -76,33 +91,30 @@ namespace SMTPlan {
 		// action constraints
 		Inst::OpStore::iterator opsItr = Inst::instantiatedOp::opsBegin();
 		const Inst::OpStore::iterator opsEnd = Inst::instantiatedOp::opsEnd();
-		enc_op = true;
 		for (; opsItr != opsEnd; ++opsItr) {
 			Inst::instantiatedOp * const currOp = *opsItr;
-		    const int operatorID = enc_opID = currOp->getID();
+		    enc_opID = currOp->getID();
 			fe = currOp->getEnv();
-			currOp->forOp()->visit(this);
-
-			// mutual exclusions
-			Inst::OpStore::iterator mutItr = Inst::instantiatedOp::opsBegin();
-			for (; mutItr != opsItr; ++mutItr) {
-				for(int h=0;h<upper_bound;h++) {
-					z3_solver->add(implies(sta_action_vars[enc_opID][h], !sta_action_vars[(*mutItr)->getID()][h]));
-				}
-			}	
+			currOp->forOp()->visit(this);	
 		}
-		enc_op = false;
 
 		// literal constraints
 		Inst::LiteralStore::iterator litItr = Inst::instantiatedOp::literalsBegin();
 		const Inst::LiteralStore::iterator litEnd = Inst::instantiatedOp::literalsEnd();
-		enc_lit = true;
 		for (; litItr != litEnd; ++litItr) {
-			Inst::Literal * const currLit = enc_currLit = *litItr;
-		    const int literalID = enc_litID = currLit->getID();
-			encodeHappeningVariableSupport(H);
+			Inst::Literal * const currLit = *litItr;
+		    enc_litID = currLit->getID();
+			encodeLiteralVariableSupport(H);
 		}
-		enc_lit = false;
+
+		// function constraints
+		Inst::PNEStore::iterator pneItr = Inst::instantiatedOp::pnesBegin();
+		const Inst::PNEStore::iterator pneEnd = Inst::instantiatedOp::pnesEnd();
+		for(; pneItr != pneEnd; ++pneItr) {
+			Inst::PNE * const currPNE = *pneItr;
+		    enc_pneID = currPNE->getID();
+			encodeFunctionVariableSupport(H);
+		}
 	}
 
 	/*--------*/
@@ -220,7 +232,7 @@ namespace SMTPlan {
 	 */
 	void Encoder::encodeInitialState(VAL::analysis* analysis) {
 
-		enc_init = true;
+		enc_state = ENC_INIT;
 		VAL::effect_lists* eff_list = analysis->the_problem->initial_state;
 
 		// simple add effects
@@ -248,13 +260,13 @@ namespace SMTPlan {
 		for (VAL::pc_list<VAL::assignment*>::const_iterator ci = eff_list->assign_effects.begin(); ci != eff_list->assign_effects.end(); ci++) {
 			const VAL::assignment* effect = *ci;
 			Inst::PNE * l = new Inst::PNE(effect->getFTerm(), fe);
-			Inst::PNE * const lit = enc_currPNE = Inst::instantiatedOp::findPNE(l);
+			Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
 			enc_pneID = lit->getID();
 			effect->getExpr()->visit(this);
 			delete l;
 		}
 
-		enc_init = false;
+		enc_state = ENC_NONE;
 	}
 
 	/**
@@ -263,10 +275,10 @@ namespace SMTPlan {
 	 */
 	void Encoder::encodeGoalState(VAL::analysis* analysis, int H) {
 
-		enc_goal = true;
+		enc_state = ENC_GOAL;
 		VAL::goal* goal = analysis->the_problem->the_goal;
 		goal->visit(this);
-		enc_goal = false;
+		enc_state = ENC_NONE;
 	}
 
 	/*---------*/
@@ -293,7 +305,6 @@ namespace SMTPlan {
 
 			// remaining duration = action duration
 			z3_solver->add(implies(sta_action_vars[enc_opID][h], run_action_vars[enc_opID][h]));
-// z3_solver->add(implies(sta_action_vars[enc_opID][h], dur_action_vars[enc_opID][h] == 10));
 			z3_solver->add(implies(end_action_vars[enc_opID][h], dur_action_vars[enc_opID][h] == 0));
 
 			// start->run->end
@@ -309,11 +320,19 @@ namespace SMTPlan {
 			}
 		}
 
-		// conditions
-        if (da->precondition) da->precondition->visit(this);
+		// duration
+		enc_state = ENC_ACTION_DURATION;
+		for(enc_expression_h=0; enc_expression_h<upper_bound; enc_expression_h++)
+			da->dur_constraint->visit(this);
 
-		// effects
+		// effects (sets up add/delete effect lists)
+		enc_state = ENC_ACTION_EFFECT;
 		da->effects->visit(this);
+
+		// conditions (sets up mutex lists)
+		enc_state = ENC_ACTION_CONDITION;
+        if (da->precondition) da->precondition->visit(this);
+		enc_state = ENC_NONE;
 	}
 
 	void Encoder::visit_action(VAL::action * o) {
@@ -325,10 +344,10 @@ namespace SMTPlan {
 	/*----------*/
 
 	/**
-	 * Constraints H1--H6, P5-P6 (A Compilation of the Full PDDL+ Language into SMT)
+	 * Constraints H1--H4, P5-P6 (A Compilation of the Full PDDL+ Language into SMT)
 	 * Encodes variable support in the form of explanatory frame axioms.
 	 */
-	void Encoder::encodeHappeningVariableSupport(int H) {
+	void Encoder::encodeLiteralVariableSupport(int H) {
 
 		for(int h=0;h<H;h++) {
 
@@ -372,6 +391,25 @@ namespace SMTPlan {
 		}
 	}
 
+	/**
+	 * Constraints H5--H6, P5-P6 (A Compilation of the Full PDDL+ Language into SMT)
+	 * Encodes variable support in the form of explanatory frame axioms.
+	 */
+	void Encoder::encodeFunctionVariableSupport(int H) {
+
+		for(int h=0;h<H;h++) {
+
+			// remain
+			z3_solver->add(pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h]);
+
+			// between happenings
+			if(h<=0) continue;
+
+			// remain
+			z3_solver->add(pos_function_vars[enc_pneID][h] == pre_function_vars[enc_pneID][h-1]);
+		}
+	}
+
 	/*-------*/
 	/* goals */
 	/*-------*/
@@ -394,15 +432,37 @@ namespace SMTPlan {
 	void Encoder::visit_simple_goal(VAL::simple_goal *c){
 		Inst::Literal * l = new Inst::Literal(c->getProp(), fe);
 		Inst::Literal * const lit = Inst::instantiatedOp::findLiteral(l);
-		if(enc_op) {
 
+		switch(enc_state) {
+
+		case ENC_GOAL:
+			if(enc_cond_neg) {
+				z3_solver->add(!pos_literal_vars[lit->getID()][(upper_bound-1)]);
+			} else {
+				z3_solver->add(pos_literal_vars[lit->getID()][(upper_bound-1)]);
+			}
+			break;
+
+		case ENC_ACTION_CONDITION:
 			for(int h=0;h<upper_bound;h++) {
 				switch(enc_cond_time) {
 				case VAL::E_AT_START:
 					if(enc_cond_neg) {
 						z3_solver->add(implies(sta_action_vars[enc_opID][h], !pre_literal_vars[lit->getID()][h]));
+						// set up mutual exclusion
+						std::list<int>::const_iterator iterator = simpleStartAddEffects[lit->getID()].begin();
+						for (; iterator != simpleStartAddEffects[lit->getID()].end(); ++iterator) {
+							if((*iterator) == enc_opID) continue;
+							z3_solver->add(!sta_action_vars[enc_opID][h] || !sta_action_vars[(*iterator)][h]);
+						}
 					} else {
 						z3_solver->add(implies(sta_action_vars[enc_opID][h], pre_literal_vars[lit->getID()][h]));
+						// set up mutual exclusion
+						std::list<int>::const_iterator iterator = simpleStartDelEffects[lit->getID()].begin();
+						for (; iterator != simpleStartDelEffects[lit->getID()].end(); ++iterator) {
+							if((*iterator) == enc_opID) continue;
+							z3_solver->add(!sta_action_vars[enc_opID][h] || !sta_action_vars[(*iterator)][h]);
+						}
 					}
 					break;
 				case VAL::E_AT_END:
@@ -414,30 +474,66 @@ namespace SMTPlan {
 					break;
 				case VAL::E_OVER_ALL:
 					if(enc_cond_neg) {
-						z3_solver->add(implies(sta_action_vars[enc_opID][h], !pre_literal_vars[lit->getID()][h]));
-						z3_solver->add(implies(end_action_vars[enc_opID][h], !pre_literal_vars[lit->getID()][h]));
+						z3_solver->add(implies(run_action_vars[enc_opID][h], !pre_literal_vars[lit->getID()][h]));
 					} else {
-						z3_solver->add(implies(sta_action_vars[enc_opID][h], pre_literal_vars[lit->getID()][h]));
-						z3_solver->add(implies(end_action_vars[enc_opID][h], pre_literal_vars[lit->getID()][h]));
+						z3_solver->add(implies(run_action_vars[enc_opID][h], pre_literal_vars[lit->getID()][h]));
 					}
 					break;
 				}
 			}
+			break;
 
-		} else if (enc_goal) {
-			if(enc_cond_neg) {
-				z3_solver->add(!pos_literal_vars[lit->getID()][(upper_bound-1)]);
-			} else {
-				z3_solver->add(pos_literal_vars[lit->getID()][(upper_bound-1)]);
-			}
+		default:
+			std::cerr << "Visit simple goal without correct state! (" << enc_state << ")" << std::endl;
+			break;
 		}
+
 		delete l;
+	}
+
+	void Encoder::visit_comparison(VAL::comparison * c) {
+
+		// generate SMT expression
+		c->getLHS()->visit(this);
+		c->getRHS()->visit(this);
+
+		z3::expr lhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+		z3::expr rhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+
+		// generate SMT comparison
+		z3::expr com = (lhs == rhs);
+		switch(c->getOp()) {
+		case VAL::E_GREATER: com = (lhs > rhs); break;
+		case VAL::E_GREATEQ: com = (lhs >= rhs); break;
+		case VAL::E_LESS: com = (lhs < rhs); break;
+		case VAL::E_LESSEQ: com = (lhs <= rhs); break;
+		case VAL::E_EQUALS: com = (lhs == rhs); break;
+		}
+
+		// encode planning constraint		
+		switch(enc_state) {
+
+		case ENC_GOAL:
+			break;
+
+		case ENC_ACTION_CONDITION:
+			break;
+
+		case ENC_ACTION_DURATION:
+			z3_solver->add(implies(sta_action_vars[enc_opID][enc_expression_h], com));
+			break;
+
+		default:
+			std::cerr << "Visit comparison without correct state! (" << enc_state << ")" << std::endl;
+			break;
+		}
 	}
 
 	void Encoder::visit_qfied_goal(VAL::qfied_goal *){}
 	void Encoder::visit_disj_goal(VAL::disj_goal *){}
 	void Encoder::visit_imply_goal(VAL::imply_goal *){}
-	void Encoder::visit_comparison(VAL::comparison *){}
 
 	/*---------*/
 	/* effects */
@@ -470,8 +566,9 @@ namespace SMTPlan {
 
 		if (!lit) return;
 
-		if(enc_op) {
+		switch(enc_state) {
 
+		case ENC_ACTION_EFFECT:
 			for(int h=0;h<upper_bound;h++) {
 				switch(enc_eff_time) {
 				case VAL::E_AT_START:
@@ -494,7 +591,13 @@ namespace SMTPlan {
 					break;
 				}
 			}
+			break;
+
+		default:
+			std::cerr << "Visit effects without correct state! (" << enc_state << ")" << std::endl;
+			break;
 		}
+
 		delete l;
 	}
 
@@ -502,22 +605,152 @@ namespace SMTPlan {
 	/* expressions */
 	/*-------------*/
 
-	void Encoder::visit_plus_expression(VAL::plus_expression * s){}
-	void Encoder::visit_minus_expression(VAL::minus_expression * s){}
-	void Encoder::visit_mul_expression(VAL::mul_expression * s){}
-	void Encoder::visit_div_expression(VAL::div_expression * s){}
-	void Encoder::visit_uminus_expression(VAL::uminus_expression * s){}
-	void Encoder::visit_int_expression(VAL::int_expression * s){}
-	void Encoder::visit_special_val_expr(VAL::special_val_expr * s){}
-	void Encoder::visit_func_term(VAL::func_term * s){}
+	void Encoder::parseExpression(VAL::expression * e) {
+		e->visit(this);
+	}
+
+	void Encoder::visit_plus_expression(VAL::plus_expression * s) {
+
+		s->getLHS()->visit(this);
+		s->getRHS()->visit(this);
+
+		z3::expr lhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+		z3::expr rhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+
+		enc_expression_stack.push_back(lhs + rhs);
+	}
+
+	void Encoder::visit_minus_expression(VAL::minus_expression * s) {
+
+		s->getLHS()->visit(this);
+		s->getRHS()->visit(this);
+
+		z3::expr lhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+		z3::expr rhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+
+		enc_expression_stack.push_back(lhs - rhs);
+	}
+
+	void Encoder::visit_mul_expression(VAL::mul_expression * s) {
+
+		s->getLHS()->visit(this);
+		s->getRHS()->visit(this);
+
+		z3::expr lhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+		z3::expr rhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+
+		enc_expression_stack.push_back(lhs * rhs);
+	}
+
+	void Encoder::visit_div_expression(VAL::div_expression * s) {
+
+		s->getLHS()->visit(this);
+		s->getRHS()->visit(this);
+
+		z3::expr lhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+		z3::expr rhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+
+		enc_expression_stack.push_back(lhs / rhs);
+	}
+
+	void Encoder::visit_uminus_expression(VAL::uminus_expression * s) {
+
+		s->getExpr()->visit(this);
+
+		z3::expr exp = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+
+		enc_expression_stack.push_back(-exp);
+	}
+
+	void Encoder::visit_int_expression(VAL::int_expression * s) {
+
+		std::stringstream ss;
+		ss << s->double_value();
+		z3::expr dv = z3_context.real_val(ss.str().c_str());
+		enc_expression_stack.push_back(dv);
+	}
 
 	void Encoder::visit_float_expression(VAL::float_expression * s) {
-		// initial state assignments
-		if(enc_init) {
-			std::stringstream ss;
-			ss << s->double_value();
-			z3::expr dv = z3_context.real_val(ss.str().c_str());
+
+		std::stringstream ss;
+		ss << s->double_value();
+		z3::expr dv = z3_context.real_val(ss.str().c_str());
+
+		switch(enc_state) {
+		
+		case ENC_INIT:
+			// initial state assignments
 			z3_solver->add(pre_function_vars[enc_pneID][0] == dv);
+			break;
+
+		case ENC_ACTION_DURATION:
+		case ENC_ACTION_CONDITION:
+			enc_expression_stack.push_back(dv);
+			break;
+
+		default:
+			std::cerr << "Visit float expression without correct state! (" << enc_state << ")" << std::endl;
+			break;
+		}
+	}
+
+	void Encoder::visit_func_term(VAL::func_term * s) {
+		Inst::PNE * l = new Inst::PNE(s, fe);
+		Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
+		
+		switch(enc_state) {
+
+		case ENC_ACTION_DURATION:
+		case ENC_ACTION_CONDITION:
+			enc_expression_stack.push_back(pre_function_vars[lit->getID()][enc_expression_h]);
+			break;
+
+		case ENC_ACTION_EFFECT:
+			enc_expression_stack.push_back(pos_function_vars[lit->getID()][enc_expression_h]);
+			break;
+
+		default:
+			std::cerr << "Visit func_term expression without correct state! (" << enc_state << ")" << std::endl;
+			break;
+		}
+
+		delete l;
+	}
+
+	void Encoder::visit_special_val_expr(VAL::special_val_expr * s) {
+
+		switch(s->getKind()) {
+
+		case VAL::E_DURATION_VAR:
+			switch(enc_state) {
+
+			case ENC_ACTION_DURATION:
+			case ENC_ACTION_CONDITION:
+				enc_expression_stack.push_back(dur_action_vars[enc_opID][enc_expression_h]);
+				break;
+
+			case ENC_ACTION_EFFECT:
+				enc_expression_stack.push_back(dur_action_vars[enc_opID][enc_expression_h]);
+				break;
+
+			default:
+				std::cerr << "Visit special_val expression without correct state! (" << enc_state << ")" << std::endl;
+				break;
+			}
+			break;
+
+		case VAL::E_HASHT:
+		case VAL::E_TOTAL_TIME:
+			break;
 		}
 	}
 

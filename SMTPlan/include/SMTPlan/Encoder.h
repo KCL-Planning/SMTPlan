@@ -22,6 +22,17 @@
 namespace SMTPlan
 {
 
+	enum EncState
+	{
+		ENC_NONE,
+		ENC_INIT,
+		ENC_GOAL,
+		ENC_LITERAL,
+		ENC_ACTION_CONDITION,
+		ENC_ACTION_DURATION,
+		ENC_ACTION_EFFECT
+	};
+
 	class Encoder : public VAL::VisitController
 	{
 	private:
@@ -30,32 +41,18 @@ namespace SMTPlan
 		PlannerOptions * opt;
 		VAL::FastEnvironment * fe;
 
+		/* encoding state */
+		EncState enc_state;
+		int enc_expression_h;
+		std::vector<z3::expr> enc_expression_stack;
+
 		/* encoding information */
+		std::vector<bool> actionMutualExclusions;
 		std::vector<std::list<int> > simpleStartAddEffects;
 		std::vector<std::list<int> > simpleStartDelEffects;
 		std::vector<std::list<int> > simpleEndAddEffects;
 		std::vector<std::list<int> > simpleEndDelEffects;
 		std::vector<bool> initialState;
-
-		/* encoding state */
-		int upper_bound;
-
-		bool enc_goal;
-		bool enc_init;
-		bool enc_lit;
-		bool enc_op;
-
-		int enc_litID;
-		int enc_pneID;
-		int enc_opID;
-
-		Inst::Literal* enc_currLit;
-		Inst::PNE* enc_currPNE;
-
-		bool enc_cond_neg;
-		bool enc_eff_neg;
-		VAL::time_spec enc_cond_time;
-		VAL::time_spec enc_eff_time;
 
 		/* SMT variables */
 		z3::context z3_context;
@@ -73,9 +70,12 @@ namespace SMTPlan
 		/* encoding methods */
 		void encodeHeader(int H);
 		void encodeTimings(int H);
-		void encodeHappeningVariableSupport(int H);
+		void encodeLiteralVariableSupport(int H);
+		void encodeFunctionVariableSupport(int H);
 		void encodeGoalState(VAL::analysis* analysis, int H);
 		void encodeInitialState(VAL::analysis* analysis);
+
+		void parseExpression(VAL::expression * e);
 
 		/* internal encoding methods */
 		z3::expr mk_or(z3::expr_vector args) {

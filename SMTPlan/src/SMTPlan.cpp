@@ -29,7 +29,7 @@ SMTPlan::Argument argument[] = {
 	{"-l",	true,	"number\tBegin iterative deepening at an encoding with l happenings (default 1)."},
 	{"-u",	true,	"number\tRun iterative deepening until the u is reached. Set -1 for unlimited (default -1)."},
 	{"-s",	true,	"number\tIteratively deepen with a step size of s (default 1)."},
-	{"-o",	true,	"path\tSave encodings to file in smt2 format."},
+	{"-o",	false,	"\tOutput encoding in smt2 format."},
 	{"-n",	false,	"\tDo not solve. Generate encoding and exit."},
 };
 
@@ -88,7 +88,7 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 			} else if(argument[j].name == "-s") {
 				options.step_size = atoi(argv[i]);
 			} else if(argument[j].name == "-o") {
-				options.encoding_path = argv[i];
+				options.encoding_path = "true";
 			} else if(argument[j].name == "-n") {
 				options.solve = false;
 			}
@@ -157,23 +157,17 @@ int main (int argc, char *argv[]) {
 	// begin search loop
 	for(int i=options.lower_bound; (options.upper_bound<0 || i<=options.upper_bound); i+=options.step_size) {
 
-		// set output
-		SMTPlan::Encoder encoder;
-		std::ofstream pFile;
-		if(options.encoding_path == "") {
-			encoder.setOutput(std::cout);
-		} else {
-			pFile.open((options.encoding_path).c_str());
-			if (!pFile.is_open() || pFile.fail() || pFile.bad()) {
-				std::cerr << "Unable to open file for output: " << options.encoding_path << std::endl;
-				return 1;
-			}
-			encoder.setOutput(pFile);
-		}
-
 		// generate encoding
+		SMTPlan::Encoder encoder;
 		encoder.encode(VAL::current_analysis, options, i);
 		fprintf(stdout,"Encoded %i:\t%f seconds\n", i, getElapsed());
+
+		// output to file
+		std::ofstream pFile;
+		if(options.encoding_path != "") {
+			std::cout << encoder.z3_solver->to_smt2() << std::endl;
+			return 0;
+		}
 
 		// solve
 		if(options.encoding_path == "") {
