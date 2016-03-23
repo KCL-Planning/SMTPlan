@@ -3,7 +3,7 @@ project(SMTPlan)
 
 ## Version number
 set (SMTPlan_VERSION_MAJOR 0)
-set (SMTPlan_VERSION_MINOR 1)
+set (SMTPlan_VERSION_MINOR 9)
 
 ##-----------##
 ## Configure ##
@@ -19,8 +19,6 @@ configure_file (
  
 ## add the binary tree to the include files so that we will find SMTPlanConfig.h
 include_directories("${PROJECT_BINARY_DIR}")
-
-find_package(Boost 1.54 COMPONENTS REQUIRED)
 
 ##-------##
 ## Build ##

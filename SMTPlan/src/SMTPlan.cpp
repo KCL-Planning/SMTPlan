@@ -23,14 +23,13 @@
 #include "typecheck.h"
 #include "TIM.h"
 
-int number_of_arguments = 6;
+int number_of_arguments = 5;
 SMTPlan::Argument argument[] = {
 	{"-h",	false,	"\tPrint this and exit."},
 	{"-l",	true,	"number\tBegin iterative deepening at an encoding with l happenings (default 1)."},
 	{"-u",	true,	"number\tRun iterative deepening until the u is reached. Set -1 for unlimited (default -1)."},
 	{"-s",	true,	"number\tIteratively deepen with a step size of s (default 1)."},
-	{"-o",	false,	"\tOutput encoding in smt2 format."},
-	{"-n",	false,	"\tDo not solve. Generate encoding and exit."},
+	{"-o",	false,	"\tDo not solve. Output encoding in smt2 format and exit."},
 };
 
 void printUsage(char* arg) {
@@ -87,8 +86,6 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 				options.upper_bound = atoi(argv[i]);
 			} else if(argument[j].name == "-s") {
 				options.step_size = atoi(argv[i]);
-			} else if(argument[j].name == "-o") {
-				options.encoding_path = "true";
 			} else if(argument[j].name == "-n") {
 				options.solve = false;
 			}
@@ -164,31 +161,20 @@ int main (int argc, char *argv[]) {
 
 		// output to file
 		std::ofstream pFile;
-		if(options.encoding_path != "") {
+		if(!options.solve) {
 			std::cout << encoder.z3_solver->to_smt2() << std::endl;
 			return 0;
 		}
 
 		// solve
-		if(options.encoding_path == "") {
-			z3::check_result result = encoder.solve();
-			if(result == z3::sat) {
-				encoder.printModel();
-				fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
-				fprintf(stdout,"Total time:\t%f seconds\n", getTotalElapsed());
-				return 0;
-			}
-			delete encoder.z3_solver;
-		} else {
-			// close file if open
-			if (!pFile.is_open()) pFile.close();
-
-			if(system("z3 test.smt2 | paste -sd ' \n' | egrep 'true|duration' | egrep 'sta|duration'") == 0) {
-				fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
-				fprintf(stdout,"Total time:\t%f seconds\n", getTotalElapsed());
-				return 0;
-			}
+		z3::check_result result = encoder.solve();
+		if(result == z3::sat) {
+			encoder.printModel();
+			fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
+			fprintf(stdout,"Total time:\t%f seconds\n", getTotalElapsed());
+			return 0;
 		}
+		delete encoder.z3_solver;
 
 		fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
 
