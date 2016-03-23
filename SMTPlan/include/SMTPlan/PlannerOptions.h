@@ -25,15 +25,10 @@ namespace SMTPlan
 		std::string problem_path;
 		std::string encoding_path;
 
-		// encoding options
-		bool explanatory_var_names;
-		bool prune;
-
 		// solving options
 		bool solve;
 
 		// iterative deepening
-		bool rpg_lower_bound;
 		int lower_bound;
 		int upper_bound;
 		int step_size;

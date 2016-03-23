@@ -117,6 +117,7 @@ namespace SMTPlan {
 			// problem name
 			problem = VAL::current_analysis->the_problem;
 			problemName = problem->name;
+
 		}
 		problemFile.close();
 		delete VAL::yfl;

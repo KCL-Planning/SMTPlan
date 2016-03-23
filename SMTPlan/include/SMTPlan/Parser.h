@@ -5,6 +5,12 @@
 #include "ptree.h"
 #include "FlexLexer.h"
 
+#include "instantiation.h"
+#include "SimpleEval.h"
+#include "DebugWriteController.h"
+#include "typecheck.h"
+#include "TIM.h"
+
 #include <fstream>
 #include <sstream>
 #include <string>

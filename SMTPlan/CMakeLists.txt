@@ -29,55 +29,34 @@ find_package(Boost 1.54 COMPONENTS regex REQUIRED)
 ## include directories
 include_directories (include)
 include_directories (src/VALfiles)
+include_directories (src/VALfiles/src)
+include_directories (src/VALfiles/include)
 
 ## required
 find_package (FLEX REQUIRED)
 
 ## val sources
 set(VAL_SOURCES
-	src/VALfiles/DebugWriteController.cpp
-	src/VALfiles/FastEnvironment.cpp
-	src/VALfiles/FuncAnalysis.cpp
-	src/VALfiles/SASActions.cpp
-	src/VALfiles/SimpleEval.cpp
-	src/VALfiles/TIM.cpp
-	src/VALfiles/TimSupport.cpp
-	src/VALfiles/ToFunction.cpp
-	src/VALfiles/TypedAnalyser.cpp
-	src/VALfiles/ValidatorAPI.cpp
-	src/VALfiles/instantiation.cpp
-	src/VALfiles/pddl+.cpp
-	src/VALfiles/ptree.cpp
-	src/VALfiles/typecheck.cpp
-	src/VALfiles/Validator.cpp
-	src/VALfiles/Action.cpp
-	src/VALfiles/Proposition.cpp
-	src/VALfiles/FuncExp.cpp
-	src/VALfiles/RepairAdvice.cpp
-	src/VALfiles/State.cpp
-	src/VALfiles/Plan.cpp
-	src/VALfiles/Ownership.cpp
-	src/VALfiles/Environment.cpp
-	src/VALfiles/Events.cpp
-	src/VALfiles/Polynomial.cpp
-	src/VALfiles/TrajectoryConstraints.cpp
-	src/VALfiles/RobustAnalyse.cpp
-	src/VALfiles/PrettyPrinter.cpp
-	src/VALfiles/random.cpp
-	src/VALfiles/LaTeXSupport.cpp
-	src/VALfiles/Utils.cpp)
+	src/VALfiles/src/DebugWriteController.cpp
+	src/VALfiles/src/FastEnvironment.cpp
+	src/VALfiles/src/FuncAnalysis.cpp
+	src/VALfiles/src/SimpleEval.cpp
+	src/VALfiles/src/TIM.cpp
+	src/VALfiles/src/TimSupport.cpp
+	src/VALfiles/src/TypedAnalyser.cpp
+	src/VALfiles/src/instantiation.cpp
+	src/VALfiles/src/pddl+.cpp
+	src/VALfiles/src/ptree.cpp
+	src/VALfiles/src/typecheck.cpp)
 
 ## SMTPLAN sources
 set(SMTPLAN_SOURCES
 	src/SMTPlan.cpp
-	src/Parser.cpp
-	src/Encoder.cpp
-	src/Grounder.cpp
-	src/RPGPruner.cpp)
+	src/Encoder.cpp)
 
 ## Declare cpp executables
 add_executable(SMTPlan ${SMTPLAN_SOURCES} ${VAL_SOURCES})
-target_link_libraries(SMTPlan ${Boost_LIBRARIES})
+target_link_libraries(SMTPlan ${Boost_LIBRARIES} z3)
 
 # add the install targets
 install (TARGETS SMTPlan DESTINATION bin)
