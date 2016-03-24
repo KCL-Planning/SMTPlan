@@ -23,7 +23,6 @@ namespace SMTPlan
 		// files
 		std::string domain_path;
 		std::string problem_path;
-		std::string encoding_path;
 
 		// solving options
 		bool solve;

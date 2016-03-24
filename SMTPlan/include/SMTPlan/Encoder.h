@@ -13,8 +13,10 @@
 #include "instantiation.h"
 #include "VisitController.h"
 #include "FastEnvironment.h"
+#include "TIM.h"
 
 #include "SMTPlan/PlannerOptions.h"
+#include "SMTPlan/ProblemInfo.h"
 
 #ifndef KCL_encoder
 #define KCL_encoder
@@ -37,25 +39,25 @@ namespace SMTPlan
 	{
 	private:
 
-		std::ostream *out;
+		std::ostream * out;
 		PlannerOptions * opt;
 		VAL::FastEnvironment * fe;
+		ProblemInfo * problem_info;
 
 		/* encoding state */
 		EncState enc_state;
 		int enc_expression_h;
 		std::vector<z3::expr> enc_expression_stack;
+		std::string enc_function_symbol;
 
 		/* encoding information */
-		std::vector<bool> actionMutualExclusions;
-		std::vector<std::list<int> > simpleStartAddEffects;
-		std::vector<std::list<int> > simpleStartDelEffects;
-		std::vector<std::list<int> > simpleEndAddEffects;
-		std::vector<std::list<int> > simpleEndDelEffects;
+		std::vector<std::vector<int> > simpleStartAddEffects;
+		std::vector<std::vector<int> > simpleStartDelEffects;
+		std::vector<std::vector<int> > simpleEndAddEffects;
+		std::vector<std::vector<int> > simpleEndDelEffects;
 		std::vector<bool> initialState;
 
 		/* SMT variables */
-		z3::context z3_context;
 		std::vector<z3::expr> time_vars;
 		std::vector<z3::expr> duration_vars;
 		std::vector<std::vector<z3::expr> > pre_function_vars;
@@ -96,7 +98,7 @@ namespace SMTPlan
 		void setOutput(std::ostream &o);
 
 		/* encoding methods */
-		bool encode(VAL::analysis* analysis, PlannerOptions options, int H);
+		bool encode(VAL::analysis* analysis, PlannerOptions &options, ProblemInfo &pi, int H);
 
 		virtual void visit_action(VAL::action * o);
 		virtual void visit_durative_action(VAL::durative_action * da);
@@ -133,6 +135,7 @@ namespace SMTPlan
 		virtual void visit_derivation_rule(VAL::derivation_rule * o);
 
 		/* solving */
+		z3::context * z3_context;
 		z3::solver * z3_solver;
 		z3::check_result solve();
 		void printModel();

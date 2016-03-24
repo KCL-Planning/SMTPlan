@@ -4,6 +4,7 @@
 
 #include "SMTPlanConfig.h"
 #include "SMTPlan/PlannerOptions.h"
+#include "SMTPlan/ProblemInfo.h"
 #include "SMTPlan/Encoder.h"
 
 #include <ctime>
@@ -29,7 +30,7 @@ SMTPlan::Argument argument[] = {
 	{"-l",	true,	"number\tBegin iterative deepening at an encoding with l happenings (default 1)."},
 	{"-u",	true,	"number\tRun iterative deepening until the u is reached. Set -1 for unlimited (default -1)."},
 	{"-s",	true,	"number\tIteratively deepen with a step size of s (default 1)."},
-	{"-o",	false,	"\tDo not solve. Output encoding in smt2 format and exit."},
+	{"-n",	false,	"\tDo not solve. Output encoding in smt2 format and exit."},
 };
 
 void printUsage(char* arg) {
@@ -50,7 +51,6 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 	// file paths
 	options.domain_path = argv[1];
 	options.problem_path = argv[2];
-	options.encoding_path = "";
 
 	// defaults
 	options.solve = true;
@@ -139,6 +139,9 @@ int main (int argc, char *argv[]) {
 
     getElapsed();
 
+
+	SMTPlan::ProblemInfo pi;
+
 	// parse domain and problem
 	TIM::performTIMAnalysis(&argv[1]);
 	Inst::SimpleEvaluator::setInitialState();
@@ -149,6 +152,28 @@ int main (int argc, char *argv[]) {
     Inst::instantiatedOp::createAllLiterals(VAL::current_analysis->the_problem, VAL::theTC);
     Inst::instantiatedOp::filterOps(VAL::theTC);
 
+	// save static predicates
+	VAL::pred_decl_list* predicates = VAL::current_analysis->the_domain->predicates;
+	for (VAL::pred_decl_list::const_iterator ci = predicates->begin(); ci != predicates->end(); ci++) {
+		VAL::holding_pred_symbol * hps = HPS((*ci)->getPred());
+		bool isStatic = true;
+		for(VAL::holding_pred_symbol::PIt i = hps->pBegin();i != hps->pEnd();++i) {
+			TIM::TIMpredSymbol * tps = const_cast<TIM::TIMpredSymbol *>(static_cast<const TIM::TIMpredSymbol*>(*i));
+			if(!tps->isDefinitelyStatic() || !tps->isStatic()) {
+				isStatic = false;
+				break;
+			}
+		}
+		pi.staticPredicateMap[hps->getName()] = isStatic;
+	}
+
+	// save static functions
+	VAL::func_decl_list* functions = VAL::current_analysis->the_domain->functions;
+	for (VAL::func_decl_list::const_iterator ci = functions->begin(); ci != functions->end(); ci++) {
+		VAL::extended_func_symbol * efs = static_cast<VAL::extended_func_symbol*>(const_cast<VAL::func_symbol*>((*ci)->getFunction()));
+		pi.staticFunctionMap[efs->getName()] = efs->isStatic();
+	}
+
 	fprintf(stdout,"Grounded:\t%f seconds\n", getElapsed());
 
 	// begin search loop
@@ -156,7 +181,7 @@ int main (int argc, char *argv[]) {
 
 		// generate encoding
 		SMTPlan::Encoder encoder;
-		encoder.encode(VAL::current_analysis, options, i);
+		encoder.encode(VAL::current_analysis, options, pi, i);
 		fprintf(stdout,"Encoded %i:\t%f seconds\n", i, getElapsed());
 
 		// output to file

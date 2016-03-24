@@ -36,7 +36,7 @@ namespace SMTPlan {
 	 */
 	void Encoder::printModel() {
 		z3::model m = z3_solver->get_model();
-		z3::expr t = z3_context.bool_val(true);
+		z3::expr t = z3_context->bool_val(true);
 		z3::set_param("pp.decimal", true);
 		//print plan
 		for(int h=0; h<upper_bound; h++) {
@@ -50,20 +50,19 @@ namespace SMTPlan {
 	/**
 	 * Main encode method
 	 */
-	bool Encoder::encode(VAL::analysis* analysis, PlannerOptions options, int H) {
+	bool Encoder::encode(VAL::analysis* analysis, PlannerOptions &options, ProblemInfo &pi, int H) {
 
 		opt = &options;
 		upper_bound = H;
+		problem_info = &pi;
 		const int pneCount = Inst::instantiatedOp::howManyPNEs();
 		const int litCount = Inst::instantiatedOp::howManyLiterals();
 		const int actCount = Inst::instantiatedOp::howMany();
 
-		actionMutualExclusions = std::vector<bool>(actCount*actCount);
-
-		simpleStartAddEffects = std::vector<std::list<int> >(litCount);
-		simpleStartDelEffects = std::vector<std::list<int> >(litCount);
-		simpleEndAddEffects = std::vector<std::list<int> >(litCount);
-		simpleEndDelEffects = std::vector<std::list<int> >(litCount);
+		simpleStartAddEffects = std::vector<std::vector<int> >(litCount);
+		simpleStartDelEffects = std::vector<std::vector<int> >(litCount);
+		simpleEndAddEffects = std::vector<std::vector<int> >(litCount);
+		simpleEndDelEffects = std::vector<std::vector<int> >(litCount);
 
 		initialState = std::vector<bool>(litCount);
 
@@ -76,7 +75,10 @@ namespace SMTPlan {
 		run_action_vars = std::vector<std::vector<z3::expr> >(actCount);
 		dur_action_vars = std::vector<std::vector<z3::expr> >(actCount);
 
-		z3_solver = new z3::solver(z3_context);
+		z3::config cfg;
+    	cfg.set("auto_config", true);
+		z3_context = new z3::context(cfg);
+		z3_solver = new z3::solver(*z3_context);
 
 		// declare all variables
 		encodeHeader(H);
@@ -103,6 +105,7 @@ namespace SMTPlan {
 		const Inst::LiteralStore::iterator litEnd = Inst::instantiatedOp::literalsEnd();
 		for (; litItr != litEnd; ++litItr) {
 			Inst::Literal * const currLit = *litItr;
+			if(problem_info->staticPredicateMap[currLit->getHead()->getName()]) continue;
 		    enc_litID = currLit->getID();
 			encodeLiteralVariableSupport(H);
 		}
@@ -112,6 +115,7 @@ namespace SMTPlan {
 		const Inst::PNEStore::iterator pneEnd = Inst::instantiatedOp::pnesEnd();
 		for(; pneItr != pneEnd; ++pneItr) {
 			Inst::PNE * const currPNE = *pneItr;
+			if(problem_info->staticFunctionMap[currPNE->getHead()->getName()]) continue;
 		    enc_pneID = currPNE->getID();
 			encodeFunctionVariableSupport(H);
 		}
@@ -127,10 +131,10 @@ namespace SMTPlan {
 		for(int h=0; h<H; h++) {
 			std::stringstream ss1;
 			ss1 << "t" << h;
-			time_vars.push_back(z3_context.real_const(ss1.str().c_str()));
+			time_vars.push_back(z3_context->real_const(ss1.str().c_str()));
 			std::stringstream ss2;
 			ss2 << "d" << h;
-			duration_vars.push_back(z3_context.real_const(ss2.str().c_str()));
+			duration_vars.push_back(z3_context->real_const(ss2.str().c_str()));
 		}
 
 		// literals
@@ -150,10 +154,10 @@ namespace SMTPlan {
 			for(int h=0; h<H; h++) {
 				std::stringstream ss1;
 				ss1 << (*currLit) << h << "_pre";
-				pre_literal_vars[currLit->getID()].push_back(z3_context.bool_const(ss1.str().c_str()));
+				pre_literal_vars[currLit->getID()].push_back(z3_context->bool_const(ss1.str().c_str()));
 				std::stringstream ss2;
 				ss2 << (*currLit) << h << "_pos";
-				pos_literal_vars[currLit->getID()].push_back(z3_context.bool_const(ss2.str().c_str()));
+				pos_literal_vars[currLit->getID()].push_back(z3_context->bool_const(ss2.str().c_str()));
 			}
 		}
 
@@ -169,10 +173,10 @@ namespace SMTPlan {
 			for(int h=0; h<H; h++) {
 				std::stringstream ss1;
 				ss1 << (*currPNE) << h << "_pre";
-				pre_function_vars[currPNE->getID()].push_back(z3_context.real_const(ss1.str().c_str()));
+				pre_function_vars[currPNE->getID()].push_back(z3_context->real_const(ss1.str().c_str()));
 				std::stringstream ss2;
 				ss2 << (*currPNE) << h << "_pos";
-				pos_function_vars[currPNE->getID()].push_back(z3_context.real_const(ss2.str().c_str()));
+				pos_function_vars[currPNE->getID()].push_back(z3_context->real_const(ss2.str().c_str()));
 			}
 		}
 
@@ -191,16 +195,16 @@ namespace SMTPlan {
 			for(int h=0; h<H; h++) {
 				std::stringstream ss1;
 				ss1 << (*currOp) << h << "_sta";
-				sta_action_vars[operatorID].push_back(z3_context.bool_const(ss1.str().c_str()));
+				sta_action_vars[operatorID].push_back(z3_context->bool_const(ss1.str().c_str()));
 				std::stringstream ss2;
 				ss2 << (*currOp) << h << "_end";
-				end_action_vars[operatorID].push_back(z3_context.bool_const(ss2.str().c_str()));
+				end_action_vars[operatorID].push_back(z3_context->bool_const(ss2.str().c_str()));
 				std::stringstream ss3;
 				ss3 << (*currOp) << h << "_run";
-				run_action_vars[operatorID].push_back(z3_context.bool_const(ss3.str().c_str()));
+				run_action_vars[operatorID].push_back(z3_context->bool_const(ss3.str().c_str()));
 				std::stringstream ss4;
 				ss4 << (*currOp) << h << "_dur";
-				dur_action_vars[operatorID].push_back(z3_context.real_const(ss4.str().c_str()));
+				dur_action_vars[operatorID].push_back(z3_context->real_const(ss4.str().c_str()));
 			}
 		}
 	}
@@ -222,7 +226,7 @@ namespace SMTPlan {
 				z3_solver->add(time_vars[h] == (time_vars[h-1] + duration_vars[h-1]));
 				z3_solver->add(time_vars[h] > (time_vars[h-1]));
 			}
-			z3_solver->add(duration_vars[h] >= z3_context.real_val("1/10"));
+			z3_solver->add(duration_vars[h] >= z3_context->real_val("1/10"));
 		}
 	}
 
@@ -241,7 +245,9 @@ namespace SMTPlan {
 			Inst::Literal * l = new Inst::Literal(effect->prop, fe);
 			Inst::Literal * const lit = Inst::instantiatedOp::findLiteral(l);
 
-			z3_solver->add(pre_literal_vars[lit->getID()][0]);
+			if(!problem_info->staticPredicateMap[lit->getHead()->getName()]) {
+				z3_solver->add(pre_literal_vars[lit->getID()][0]);
+			}
 
 			initialState[lit->getID()] = true;
 			delete l;
@@ -251,6 +257,8 @@ namespace SMTPlan {
 		const Inst::LiteralStore::iterator litEnd = Inst::instantiatedOp::literalsEnd();
 		for (; litItr != litEnd; ++litItr) {
 			Inst::Literal * const currLit = *litItr;
+			if(problem_info->staticPredicateMap[currLit->getHead()->getName()])
+				continue;
 			if(!initialState[currLit->getID()]) {
 				z3_solver->add(!pre_literal_vars[currLit->getID()][0]);
 			}
@@ -259,9 +267,10 @@ namespace SMTPlan {
 		// assign effects
 		for (VAL::pc_list<VAL::assignment*>::const_iterator ci = eff_list->assign_effects.begin(); ci != eff_list->assign_effects.end(); ci++) {
 			const VAL::assignment* effect = *ci;
-			Inst::PNE * l = new Inst::PNE(effect->getFTerm(), fe);
+			Inst::PNE * l = new Inst::PNE(effect->getFTerm(), fe);	
 			Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
 			enc_pneID = lit->getID();
+			enc_function_symbol = l->getHead()->getName();
 			effect->getExpr()->visit(this);
 			delete l;
 		}
@@ -352,10 +361,10 @@ namespace SMTPlan {
 		for(int h=0;h<H;h++) {
 
 			// remain TRUE
-			z3::expr_vector addargs(z3_context);
+			z3::expr_vector addargs(*z3_context);
 			addargs.push_back(pre_literal_vars[enc_litID][h]);
 			if(simpleStartAddEffects[enc_litID].size()>0 || simpleEndAddEffects[enc_litID].size()>0) {
-				std::list<int>::const_iterator iterator = simpleStartAddEffects[enc_litID].begin();
+				std::vector<int>::const_iterator iterator = simpleStartAddEffects[enc_litID].begin();
 				for (; iterator != simpleStartAddEffects[enc_litID].end(); ++iterator) {
 					addargs.push_back(sta_action_vars[(*iterator)][h]);
 				}
@@ -368,10 +377,10 @@ namespace SMTPlan {
 
 
 			// remain FALSE
-			z3::expr_vector delargs(z3_context);
+			z3::expr_vector delargs(*z3_context);
 			delargs.push_back(!pre_literal_vars[enc_litID][h]);
 			if(simpleStartDelEffects[enc_litID].size()>0 || simpleEndDelEffects[enc_litID].size()>0) {
-				std::list<int>::const_iterator iterator = simpleStartDelEffects[enc_litID].begin();
+				std::vector<int>::const_iterator iterator = simpleStartDelEffects[enc_litID].begin();
 				for (; iterator != simpleStartDelEffects[enc_litID].end(); ++iterator) {
 					delargs.push_back(sta_action_vars[(*iterator)][h]);
 				}
@@ -444,13 +453,18 @@ namespace SMTPlan {
 			break;
 
 		case ENC_ACTION_CONDITION:
+
+			if(problem_info->staticPredicateMap[lit->getHead()->getName()]) {
+				break;
+			}
+
 			for(int h=0;h<upper_bound;h++) {
 				switch(enc_cond_time) {
 				case VAL::E_AT_START:
 					if(enc_cond_neg) {
 						z3_solver->add(implies(sta_action_vars[enc_opID][h], !pre_literal_vars[lit->getID()][h]));
 						// set up mutual exclusion
-						std::list<int>::const_iterator iterator = simpleStartAddEffects[lit->getID()].begin();
+						std::vector<int>::const_iterator iterator = simpleStartAddEffects[lit->getID()].begin();
 						for (; iterator != simpleStartAddEffects[lit->getID()].end(); ++iterator) {
 							if((*iterator) == enc_opID) continue;
 							z3_solver->add(!sta_action_vars[enc_opID][h] || !sta_action_vars[(*iterator)][h]);
@@ -458,7 +472,7 @@ namespace SMTPlan {
 					} else {
 						z3_solver->add(implies(sta_action_vars[enc_opID][h], pre_literal_vars[lit->getID()][h]));
 						// set up mutual exclusion
-						std::list<int>::const_iterator iterator = simpleStartDelEffects[lit->getID()].begin();
+						std::vector<int>::const_iterator iterator = simpleStartDelEffects[lit->getID()].begin();
 						for (; iterator != simpleStartDelEffects[lit->getID()].end(); ++iterator) {
 							if((*iterator) == enc_opID) continue;
 							z3_solver->add(!sta_action_vars[enc_opID][h] || !sta_action_vars[(*iterator)][h]);
@@ -675,7 +689,7 @@ namespace SMTPlan {
 
 		std::stringstream ss;
 		ss << s->double_value();
-		z3::expr dv = z3_context.real_val(ss.str().c_str());
+		z3::expr dv = z3_context->real_val(ss.str().c_str());
 		enc_expression_stack.push_back(dv);
 	}
 
@@ -683,13 +697,17 @@ namespace SMTPlan {
 
 		std::stringstream ss;
 		ss << s->double_value();
-		z3::expr dv = z3_context.real_val(ss.str().c_str());
+		z3::expr dv = z3_context->real_val(ss.str().c_str());
 
 		switch(enc_state) {
 		
 		case ENC_INIT:
 			// initial state assignments
-			z3_solver->add(pre_function_vars[enc_pneID][0] == dv);
+			if(problem_info->staticFunctionMap[enc_function_symbol]) {
+				problem_info->staticFunctionValues[enc_pneID] = s->double_value();
+			} else {
+				z3_solver->add(pre_function_vars[enc_pneID][0] == dv);
+			}
 			break;
 
 		case ENC_ACTION_DURATION:
@@ -711,7 +729,14 @@ namespace SMTPlan {
 
 		case ENC_ACTION_DURATION:
 		case ENC_ACTION_CONDITION:
-			enc_expression_stack.push_back(pre_function_vars[lit->getID()][enc_expression_h]);
+			if(problem_info->staticFunctionMap[l->getHead()->getName()]) {
+				std::stringstream ss;
+				ss << problem_info->staticFunctionValues[lit->getID()];
+				z3::expr dv = z3_context->real_val(ss.str().c_str());
+				enc_expression_stack.push_back(dv);
+			} else {
+				enc_expression_stack.push_back(pre_function_vars[lit->getID()][enc_expression_h]);
+			}
 			break;
 
 		case ENC_ACTION_EFFECT:
