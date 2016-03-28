@@ -3,31 +3,22 @@
 /* implementation of SMTPlan::Encoder */
 namespace SMTPlan {
 
-		/* encoding state */
-		int upper_bound;
+	/* encoding state */
+	int enc_litID;
+	int enc_pneID;
+	int enc_opID;
 
-		int enc_litID;
-		int enc_pneID;
-		int enc_opID;
-
-		bool enc_cond_neg;
-		bool enc_eff_neg;
-		VAL::time_spec enc_cond_time;
-		VAL::time_spec enc_eff_time;
-		VAL::comparison_op enc_comparison_op;
-
-	/**
-	 * sets the output stream for writing to file/stdout
-	 */
-	void Encoder::setOutput(std::ostream &o) {
-		out = &o;
-	}
+	bool enc_cond_neg;
+	bool enc_eff_neg;
+	VAL::time_spec enc_cond_time;
+	VAL::time_spec enc_eff_time;
+	VAL::comparison_op enc_comparison_op;
 
 	/**
 	 * attempt to solve the encoding
 	 */
 	z3::check_result Encoder::solve() {
-		z3::check_result result = z3_solver->check();
+		z3::check_result result = z3_solver->check(goal_expression.size(), &(*goal_expression.begin()));
 		return result;
 	}
 
@@ -50,35 +41,9 @@ namespace SMTPlan {
 	/**
 	 * Main encode method
 	 */
-	bool Encoder::encode(VAL::analysis* analysis, PlannerOptions &options, ProblemInfo &pi, int H) {
+	bool Encoder::encode(int H) {
 
-		opt = &options;
 		upper_bound = H;
-		problem_info = &pi;
-		const int pneCount = Inst::instantiatedOp::howManyPNEs();
-		const int litCount = Inst::instantiatedOp::howManyLiterals();
-		const int actCount = Inst::instantiatedOp::howMany();
-
-		simpleStartAddEffects = std::vector<std::vector<int> >(litCount);
-		simpleStartDelEffects = std::vector<std::vector<int> >(litCount);
-		simpleEndAddEffects = std::vector<std::vector<int> >(litCount);
-		simpleEndDelEffects = std::vector<std::vector<int> >(litCount);
-
-		initialState = std::vector<bool>(litCount);
-
-		pre_function_vars = std::vector<std::vector<z3::expr> >(pneCount);
-		pos_function_vars = std::vector<std::vector<z3::expr> >(pneCount);
-		pre_literal_vars = std::vector<std::vector<z3::expr> >(litCount);
-		pos_literal_vars = std::vector<std::vector<z3::expr> >(litCount);
-		sta_action_vars = std::vector<std::vector<z3::expr> >(actCount);
-		end_action_vars = std::vector<std::vector<z3::expr> >(actCount);
-		run_action_vars = std::vector<std::vector<z3::expr> >(actCount);
-		dur_action_vars = std::vector<std::vector<z3::expr> >(actCount);
-
-		z3::config cfg;
-    	cfg.set("auto_config", true);
-		z3_context = new z3::context(cfg);
-		z3_solver = new z3::solver(*z3_context);
 
 		// declare all variables
 		encodeHeader(H);
@@ -87,8 +52,9 @@ namespace SMTPlan {
 		encodeTimings(H);
 
 		// known states
-		encodeInitialState(analysis);
-		encodeGoalState(analysis, H);
+		if(next_layer == 0)
+			encodeInitialState();
+		encodeGoalState(H);
 
 		// action constraints
 		Inst::OpStore::iterator opsItr = Inst::instantiatedOp::opsBegin();
@@ -119,6 +85,8 @@ namespace SMTPlan {
 		    enc_pneID = currPNE->getID();
 			encodeFunctionVariableSupport(H);
 		}
+
+		next_layer = upper_bound;
 	}
 
 	/*--------*/
@@ -128,7 +96,7 @@ namespace SMTPlan {
 	void Encoder::encodeHeader(int H) {
 
 		// timings
-		for(int h=0; h<H; h++) {
+		for(int h=next_layer; h<H; h++) {
 			std::stringstream ss1;
 			ss1 << "t" << h;
 			time_vars.push_back(z3_context->real_const(ss1.str().c_str()));
@@ -143,15 +111,17 @@ namespace SMTPlan {
 		for (; litItr != litEnd; ++litItr) {
 			Inst::Literal * const currLit = *litItr;
 
-			simpleStartAddEffects[currLit->getID()];
-			simpleStartDelEffects[currLit->getID()];
-			simpleEndAddEffects[currLit->getID()];
-			simpleEndDelEffects[currLit->getID()];
+			if(next_layer == 0) {
+				simpleStartAddEffects[currLit->getID()];
+				simpleStartDelEffects[currLit->getID()];
+				simpleEndAddEffects[currLit->getID()];
+				simpleEndDelEffects[currLit->getID()];
 
-			pre_literal_vars[currLit->getID()];
-			pos_literal_vars[currLit->getID()];
+				pre_literal_vars[currLit->getID()];
+				pos_literal_vars[currLit->getID()];
+			}
 
-			for(int h=0; h<H; h++) {
+			for(int h=next_layer; h<H; h++) {
 				std::stringstream ss1;
 				ss1 << (*currLit) << h << "_pre";
 				pre_literal_vars[currLit->getID()].push_back(z3_context->bool_const(ss1.str().c_str()));
@@ -167,10 +137,12 @@ namespace SMTPlan {
 		for(; pneItr != pneEnd; ++pneItr) {
 			Inst::PNE * const currPNE = *pneItr;
 
-			pre_function_vars[currPNE->getID()];
-			pos_function_vars[currPNE->getID()];
+			if(next_layer == 0) {
+				pre_function_vars[currPNE->getID()];
+				pos_function_vars[currPNE->getID()];
+			}
 
-			for(int h=0; h<H; h++) {
+			for(int h=next_layer; h<H; h++) {
 				std::stringstream ss1;
 				ss1 << (*currPNE) << h << "_pre";
 				pre_function_vars[currPNE->getID()].push_back(z3_context->real_const(ss1.str().c_str()));
@@ -187,12 +159,14 @@ namespace SMTPlan {
 			Inst::instantiatedOp * const currOp = *opsItr;
 		    const int operatorID = currOp->getID();
 
-			sta_action_vars[operatorID];
-			end_action_vars[operatorID];
-			run_action_vars[operatorID];
-			dur_action_vars[operatorID];
+			if(next_layer == 0) {
+				sta_action_vars[operatorID];
+				end_action_vars[operatorID];
+				run_action_vars[operatorID];
+				dur_action_vars[operatorID];
+			}
 
-			for(int h=0; h<H; h++) {
+			for(int h=next_layer; h<H; h++) {
 				std::stringstream ss1;
 				ss1 << (*currOp) << h << "_sta";
 				sta_action_vars[operatorID].push_back(z3_context->bool_const(ss1.str().c_str()));
@@ -219,7 +193,7 @@ namespace SMTPlan {
 	 */	
 	void Encoder::encodeTimings(int H) {
 
-		for(int h=0; h<H; h++) {
+		for(int h=next_layer; h<H; h++) {
 			if(h==0) {
 				z3_solver->add(time_vars[h] == 0);
 			} else {
@@ -234,10 +208,10 @@ namespace SMTPlan {
 	 * Constraints P1 (A Compilation of the Full PDDL+ Language into SMT)
 	 * encodes the initial state
 	 */
-	void Encoder::encodeInitialState(VAL::analysis* analysis) {
+	void Encoder::encodeInitialState() {
 
 		enc_state = ENC_INIT;
-		VAL::effect_lists* eff_list = analysis->the_problem->initial_state;
+		VAL::effect_lists* eff_list = val_analysis->the_problem->initial_state;
 
 		// simple add effects
 		for (VAL::pc_list<VAL::simple_effect*>::const_iterator ci = eff_list->add_effects.begin(); ci != eff_list->add_effects.end(); ci++) {
@@ -282,10 +256,11 @@ namespace SMTPlan {
 	 * Constraints P2 (A Compilation of the Full PDDL+ Language into SMT)
 	 * encodes the goal state
 	 */
-	void Encoder::encodeGoalState(VAL::analysis* analysis, int H) {
+	void Encoder::encodeGoalState(int H) {
 
 		enc_state = ENC_GOAL;
-		VAL::goal* goal = analysis->the_problem->the_goal;
+		goal_expression.clear();
+		VAL::goal* goal = val_analysis->the_problem->the_goal;
 		goal->visit(this);
 		enc_state = ENC_NONE;
 	}
@@ -300,7 +275,7 @@ namespace SMTPlan {
 	 */
 	void Encoder::visit_durative_action(VAL::durative_action * da) {
 
-		for(int h=0; h<upper_bound; h++) {
+		for(int h=next_layer; h<upper_bound; h++) {
 		
 			// running action/process iff (remaining duration > 0)
 			z3_solver->add(run_action_vars[enc_opID][h] == (dur_action_vars[enc_opID][h] > 0));
@@ -331,7 +306,7 @@ namespace SMTPlan {
 
 		// duration
 		enc_state = ENC_ACTION_DURATION;
-		for(enc_expression_h=0; enc_expression_h<upper_bound; enc_expression_h++)
+		for(enc_expression_h=next_layer; enc_expression_h<upper_bound; enc_expression_h++)
 			da->dur_constraint->visit(this);
 
 		// effects (sets up add/delete effect lists)
@@ -358,7 +333,7 @@ namespace SMTPlan {
 	 */
 	void Encoder::encodeLiteralVariableSupport(int H) {
 
-		for(int h=0;h<H;h++) {
+		for(int h=next_layer;h<H;h++) {
 
 			// remain TRUE
 			z3::expr_vector addargs(*z3_context);
@@ -406,7 +381,7 @@ namespace SMTPlan {
 	 */
 	void Encoder::encodeFunctionVariableSupport(int H) {
 
-		for(int h=0;h<H;h++) {
+		for(int h=next_layer;h<H;h++) {
 
 			// remain
 			z3_solver->add(pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h]);
@@ -446,9 +421,9 @@ namespace SMTPlan {
 
 		case ENC_GOAL:
 			if(enc_cond_neg) {
-				z3_solver->add(!pos_literal_vars[lit->getID()][(upper_bound-1)]);
+				goal_expression.push_back(!pos_literal_vars[lit->getID()][(upper_bound-1)]);
 			} else {
-				z3_solver->add(pos_literal_vars[lit->getID()][(upper_bound-1)]);
+				goal_expression.push_back(pos_literal_vars[lit->getID()][(upper_bound-1)]);
 			}
 			break;
 
@@ -458,7 +433,7 @@ namespace SMTPlan {
 				break;
 			}
 
-			for(int h=0;h<upper_bound;h++) {
+			for(int h=next_layer;h<upper_bound;h++) {
 				switch(enc_cond_time) {
 				case VAL::E_AT_START:
 					if(enc_cond_neg) {
@@ -583,24 +558,24 @@ namespace SMTPlan {
 		switch(enc_state) {
 
 		case ENC_ACTION_EFFECT:
-			for(int h=0;h<upper_bound;h++) {
+			for(int h=next_layer;h<upper_bound;h++) {
 				switch(enc_eff_time) {
 				case VAL::E_AT_START:
 					if(enc_eff_neg) {
 						z3_solver->add(implies(sta_action_vars[enc_opID][h], !pos_literal_vars[lit->getID()][h]));
-						simpleStartDelEffects[lit->getID()].push_back(enc_opID);
+						if(h==0) simpleStartDelEffects[lit->getID()].push_back(enc_opID);
 					} else {
 						z3_solver->add(implies(sta_action_vars[enc_opID][h], pos_literal_vars[lit->getID()][h]));
-						simpleStartAddEffects[lit->getID()].push_back(enc_opID);
+						if(h==0) simpleStartAddEffects[lit->getID()].push_back(enc_opID);
 					}
 					break;
 				case VAL::E_AT_END:
 					if(enc_eff_neg) {
 						z3_solver->add(implies(end_action_vars[enc_opID][h], !pos_literal_vars[lit->getID()][h]));
-						simpleEndDelEffects[lit->getID()].push_back(enc_opID);
+						if(h==0) simpleEndDelEffects[lit->getID()].push_back(enc_opID);
 					} else {
 						z3_solver->add(implies(end_action_vars[enc_opID][h], pos_literal_vars[lit->getID()][h]));
-						simpleEndAddEffects[lit->getID()].push_back(enc_opID);
+						if(h==0) simpleEndAddEffects[lit->getID()].push_back(enc_opID);
 					}
 					break;
 				}

@@ -20,6 +20,8 @@ namespace SMTPlan
 
 	struct PlannerOptions
 	{
+		bool verbose;
+
 		// files
 		std::string domain_path;
 		std::string problem_path;

@@ -24,13 +24,14 @@
 #include "typecheck.h"
 #include "TIM.h"
 
-int number_of_arguments = 5;
+int number_of_arguments = 6;
 SMTPlan::Argument argument[] = {
 	{"-h",	false,	"\tPrint this and exit."},
 	{"-l",	true,	"number\tBegin iterative deepening at an encoding with l happenings (default 1)."},
 	{"-u",	true,	"number\tRun iterative deepening until the u is reached. Set -1 for unlimited (default -1)."},
 	{"-s",	true,	"number\tIteratively deepen with a step size of s (default 1)."},
 	{"-n",	false,	"\tDo not solve. Output encoding in smt2 format and exit."},
+	{"-v",	false,	"\tVerbose times."},
 };
 
 void printUsage(char* arg) {
@@ -53,6 +54,7 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 	options.problem_path = argv[2];
 
 	// defaults
+	options.verbose = false;
 	options.solve = true;
 	options.lower_bound = 1;
 	options.upper_bound = -1;
@@ -88,6 +90,8 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 				options.step_size = atoi(argv[i]);
 			} else if(argument[j].name == "-n") {
 				options.solve = false;
+			} else if(argument[j].name == "-v") {
+				options.verbose = true;
 			}
 		}
 		if(!argumentFound) {
@@ -174,15 +178,15 @@ int main (int argc, char *argv[]) {
 		pi.staticFunctionMap[efs->getName()] = efs->isStatic();
 	}
 
-	fprintf(stdout,"Grounded:\t%f seconds\n", getElapsed());
+	if(options.verbose) fprintf(stdout,"Grounded:\t%f seconds\n", getElapsed());
 
 	// begin search loop
+	SMTPlan::Encoder encoder(VAL::current_analysis, options, pi);
 	for(int i=options.lower_bound; (options.upper_bound<0 || i<=options.upper_bound); i+=options.step_size) {
 
 		// generate encoding
-		SMTPlan::Encoder encoder;
-		encoder.encode(VAL::current_analysis, options, pi, i);
-		fprintf(stdout,"Encoded %i:\t%f seconds\n", i, getElapsed());
+		encoder.encode(i);
+		if(options.verbose) fprintf(stdout,"Encoded %i:\t%f seconds\n", i, getElapsed());
 
 		// output to file
 		std::ofstream pFile;
@@ -195,18 +199,19 @@ int main (int argc, char *argv[]) {
 		z3::check_result result = encoder.solve();
 		if(result == z3::sat) {
 			encoder.printModel();
-			fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
-			fprintf(stdout,"Total time:\t%f seconds\n", getTotalElapsed());
+			if(options.verbose) {
+				fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
+				fprintf(stdout,"Total time:\t%f seconds\n", getTotalElapsed());
+			}
 			return 0;
 		}
-		delete encoder.z3_solver;
 
-		fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
+		if(options.verbose) fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
 
 	}
 
 	fprintf(stdout, "No plan found in %i happenings\n", options.upper_bound);
-	fprintf(stdout, "Total time:\t%f seconds\n", getTotalElapsed());
+	if(options.verbose) fprintf(stdout, "Total time:\t%f seconds\n", getTotalElapsed());
 
 	return 0;
 }

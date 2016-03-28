@@ -39,10 +39,16 @@ namespace SMTPlan
 	{
 	private:
 
-		std::ostream * out;
+		/* encoding info */
+		int upper_bound;
+		int next_layer;
+		std::vector<z3::expr> goal_expression;
+
+		/* problem info */
 		PlannerOptions * opt;
-		VAL::FastEnvironment * fe;
 		ProblemInfo * problem_info;
+		VAL::FastEnvironment * fe;
+		VAL::analysis * val_analysis;
 
 		/* encoding state */
 		EncState enc_state;
@@ -74,8 +80,8 @@ namespace SMTPlan
 		void encodeTimings(int H);
 		void encodeLiteralVariableSupport(int H);
 		void encodeFunctionVariableSupport(int H);
-		void encodeGoalState(VAL::analysis* analysis, int H);
-		void encodeInitialState(VAL::analysis* analysis);
+		void encodeGoalState(int H);
+		void encodeInitialState();
 
 		void parseExpression(VAL::expression * e);
 
@@ -94,11 +100,43 @@ namespace SMTPlan
 
 	public:
 
+		Encoder(VAL::analysis* analysis, PlannerOptions &options, ProblemInfo &pi)
+		{
+			next_layer = 0;
+
+			problem_info = &pi;
+			val_analysis = analysis;
+			const int pneCount = Inst::instantiatedOp::howManyPNEs();
+			const int litCount = Inst::instantiatedOp::howManyLiterals();
+			const int actCount = Inst::instantiatedOp::howMany();
+
+			simpleStartAddEffects = std::vector<std::vector<int> >(litCount);
+			simpleStartDelEffects = std::vector<std::vector<int> >(litCount);
+			simpleEndAddEffects = std::vector<std::vector<int> >(litCount);
+			simpleEndDelEffects = std::vector<std::vector<int> >(litCount);
+
+			initialState = std::vector<bool>(litCount);
+
+			pre_function_vars = std::vector<std::vector<z3::expr> >(pneCount);
+			pos_function_vars = std::vector<std::vector<z3::expr> >(pneCount);
+			pre_literal_vars = std::vector<std::vector<z3::expr> >(litCount);
+			pos_literal_vars = std::vector<std::vector<z3::expr> >(litCount);
+			sta_action_vars = std::vector<std::vector<z3::expr> >(actCount);
+			end_action_vars = std::vector<std::vector<z3::expr> >(actCount);
+			run_action_vars = std::vector<std::vector<z3::expr> >(actCount);
+			dur_action_vars = std::vector<std::vector<z3::expr> >(actCount);
+
+			z3::config cfg;
+			cfg.set("auto_config", true);
+			z3_context = new z3::context(cfg);
+			z3_solver = new z3::solver(*z3_context);
+		}
+
 		/* setup methods */
 		void setOutput(std::ostream &o);
 
 		/* encoding methods */
-		bool encode(VAL::analysis* analysis, PlannerOptions &options, ProblemInfo &pi, int H);
+		bool encode(int H);
 
 		virtual void visit_action(VAL::action * o);
 		virtual void visit_durative_action(VAL::durative_action * da);
