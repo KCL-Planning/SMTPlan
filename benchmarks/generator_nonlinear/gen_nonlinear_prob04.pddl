@@ -1,0 +1,18 @@
+(define (problem run-generator2)
+    (:domain generator)
+    (:objects gen - generator tank1 tank2 tank3 tank4 - tank)
+    (:init 	(= (fuelLevel gen) 860)
+		(= (capacity gen)  1600)
+
+		(available tank1)
+		(available tank2)
+		(available tank3)
+		(available tank4)
+
+		(= (ptime tank1) 0)
+		(= (ptime tank2) 0)
+		(= (ptime tank3) 0)
+		(= (ptime tank4) 0)
+     )  
+     (:goal (generator-ran))
+) 
