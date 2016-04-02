@@ -24,14 +24,18 @@ include_directories("${PROJECT_BINARY_DIR}")
 ## Build ##
 ##-------##
 
+## required
+find_package(FLEX REQUIRED)
+find_package(PythonLibs REQUIRED)
+find_package(SymEngine 0.1.0 CONFIG)
+
 ## include directories
 include_directories (include)
 include_directories (src/VALfiles)
 include_directories (src/VALfiles/src)
 include_directories (src/VALfiles/include)
-
-## required
-find_package (FLEX REQUIRED)
+include_directories(${PYTHON_INCLUDE_DIRS})
+include_directories(${SYMENGINE_INCLUDE_DIRS})
 
 ## val sources
 set(VAL_SOURCES
@@ -54,7 +58,10 @@ set(SMTPLAN_SOURCES
 
 ## Declare cpp executables
 add_executable(SMTPlan ${SMTPLAN_SOURCES} ${VAL_SOURCES})
-target_link_libraries(SMTPlan ${Boost_LIBRARIES} z3)
+target_link_libraries(SMTPlan ${Boost_LIBRARIES} z3 ${SYMENGINE_LIBRARIES})
+
+add_executable(test_python src/test_python.cpp)
+target_link_libraries(test_python ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${SYMENGINE_INCLUDE_DIRS})
 
 # add the install targets
 install (TARGETS SMTPlan DESTINATION bin)

@@ -61,6 +61,8 @@ namespace SMTPlan
 		std::vector<std::vector<int> > simpleStartDelEffects;
 		std::vector<std::vector<int> > simpleEndAddEffects;
 		std::vector<std::vector<int> > simpleEndDelEffects;
+		std::map<int, std::vector<std::pair<int, z3::expr> > > simpleStartAssignEffects;
+		std::map<int, std::vector<std::pair<int, z3::expr> > > simpleEndAssignEffects;
 		std::vector<bool> initialState;
 
 		/* SMT variables */
@@ -132,12 +134,10 @@ namespace SMTPlan
 			z3_solver = new z3::solver(*z3_context);
 		}
 
-		/* setup methods */
-		void setOutput(std::ostream &o);
-
 		/* encoding methods */
 		bool encode(int H);
 
+		/* visitor methods */
 		virtual void visit_action(VAL::action * o);
 		virtual void visit_durative_action(VAL::durative_action * da);
 
@@ -149,6 +149,7 @@ namespace SMTPlan
 		virtual void visit_imply_goal(VAL::imply_goal *);
 		virtual void visit_neg_goal(VAL::neg_goal *);
 
+		virtual void visit_assignment(VAL::assignment * e);
 		virtual void visit_simple_effect(VAL::simple_effect * e);
 		virtual void visit_forall_effect(VAL::forall_effect * e);
 		virtual void visit_cond_effect(VAL::cond_effect * e);

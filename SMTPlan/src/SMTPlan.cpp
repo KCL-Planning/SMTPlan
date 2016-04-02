@@ -1,7 +1,6 @@
 /**
  * This file implements the main method of SMTPlan.
  */
-
 #include "SMTPlanConfig.h"
 #include "SMTPlan/PlannerOptions.h"
 #include "SMTPlan/ProblemInfo.h"

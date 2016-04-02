@@ -32,7 +32,7 @@ using std::find;
 
 namespace VAL {
 
-bool FAverbose = true;
+bool FAverbose = false;
 
 bool isSigned(const FValue & f1)
 {

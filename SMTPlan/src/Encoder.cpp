@@ -245,7 +245,18 @@ namespace SMTPlan {
 			Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
 			enc_pneID = lit->getID();
 			enc_function_symbol = l->getHead()->getName();
+
+			enc_expression_h = 0;
 			effect->getExpr()->visit(this);
+			z3::expr expr = enc_expression_stack.back();
+			enc_expression_stack.pop_back();
+
+			if(problem_info->staticFunctionMap[enc_function_symbol]) {
+				problem_info->staticFunctionValues[enc_pneID] = expr;
+			} else {
+				z3_solver->add(pre_function_vars[enc_pneID][0] == expr);
+			}
+
 			delete l;
 		}
 
@@ -259,6 +270,7 @@ namespace SMTPlan {
 	void Encoder::encodeGoalState(int H) {
 
 		enc_state = ENC_GOAL;
+		enc_expression_h = upper_bound-1;
 		goal_expression.clear();
 		VAL::goal* goal = val_analysis->the_problem->the_goal;
 		goal->visit(this);
@@ -304,19 +316,22 @@ namespace SMTPlan {
 			}
 		}
 
-		// duration
-		enc_state = ENC_ACTION_DURATION;
-		for(enc_expression_h=next_layer; enc_expression_h<upper_bound; enc_expression_h++)
+		for(enc_expression_h=next_layer; enc_expression_h<upper_bound; enc_expression_h++) {
+
+			// duration
+			enc_state = ENC_ACTION_DURATION;
 			da->dur_constraint->visit(this);
 
-		// effects (sets up add/delete effect lists)
-		enc_state = ENC_ACTION_EFFECT;
-		da->effects->visit(this);
+			// effects (sets up add/delete effect lists)
+			enc_state = ENC_ACTION_EFFECT;
+			da->effects->visit(this);
 
-		// conditions (sets up mutex lists)
-		enc_state = ENC_ACTION_CONDITION;
-        if (da->precondition) da->precondition->visit(this);
-		enc_state = ENC_NONE;
+			// conditions (sets up mutex lists)
+			enc_state = ENC_ACTION_CONDITION;
+		   	if (da->precondition) da->precondition->visit(this);
+
+			enc_state = ENC_NONE;
+		}
 	}
 
 	void Encoder::visit_action(VAL::action * o) {
@@ -382,15 +397,27 @@ namespace SMTPlan {
 	void Encoder::encodeFunctionVariableSupport(int H) {
 
 		for(int h=next_layer;h<H;h++) {
-
-			// remain
-			z3_solver->add(pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h]);
+	
+			// remain or assign
+			z3::expr_vector chargs(*z3_context);
+			if(simpleStartAssignEffects[enc_pneID].size()>0 || simpleEndAssignEffects[enc_pneID].size()>0) {
+				std::vector<std::pair<int, z3::expr> >::const_iterator iterator = simpleStartAssignEffects[enc_pneID].begin();
+				for (; iterator != simpleStartAssignEffects[enc_pneID].end(); ++iterator) {
+					chargs.push_back(sta_action_vars[iterator->first][h]);
+				}
+				iterator = simpleEndAssignEffects[enc_pneID].begin();
+				for (; iterator != simpleEndAssignEffects[enc_pneID].end(); ++iterator) {
+					chargs.push_back(end_action_vars[iterator->first][h]);
+				}
+			}
+			chargs.push_back(pos_function_vars[enc_pneID][h] == pre_function_vars[enc_pneID][h]);
+			z3_solver->add(mk_or(chargs));
 
 			// between happenings
 			if(h<=0) continue;
 
-			// remain
-			z3_solver->add(pos_function_vars[enc_pneID][h] == pre_function_vars[enc_pneID][h-1]);
+			// remain or change over time
+			z3_solver->add(pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h-1]);
 		}
 	}
 
@@ -433,42 +460,40 @@ namespace SMTPlan {
 				break;
 			}
 
-			for(int h=next_layer;h<upper_bound;h++) {
-				switch(enc_cond_time) {
-				case VAL::E_AT_START:
-					if(enc_cond_neg) {
-						z3_solver->add(implies(sta_action_vars[enc_opID][h], !pre_literal_vars[lit->getID()][h]));
-						// set up mutual exclusion
-						std::vector<int>::const_iterator iterator = simpleStartAddEffects[lit->getID()].begin();
-						for (; iterator != simpleStartAddEffects[lit->getID()].end(); ++iterator) {
-							if((*iterator) == enc_opID) continue;
-							z3_solver->add(!sta_action_vars[enc_opID][h] || !sta_action_vars[(*iterator)][h]);
-						}
-					} else {
-						z3_solver->add(implies(sta_action_vars[enc_opID][h], pre_literal_vars[lit->getID()][h]));
-						// set up mutual exclusion
-						std::vector<int>::const_iterator iterator = simpleStartDelEffects[lit->getID()].begin();
-						for (; iterator != simpleStartDelEffects[lit->getID()].end(); ++iterator) {
-							if((*iterator) == enc_opID) continue;
-							z3_solver->add(!sta_action_vars[enc_opID][h] || !sta_action_vars[(*iterator)][h]);
-						}
+			switch(enc_cond_time) {
+			case VAL::E_AT_START:
+				if(enc_cond_neg) {
+					z3_solver->add(implies(sta_action_vars[enc_opID][enc_expression_h], !pre_literal_vars[lit->getID()][enc_expression_h]));
+					// mutual exclusion
+					std::vector<int>::const_iterator iterator = simpleStartAddEffects[lit->getID()].begin();
+					for (; iterator != simpleStartAddEffects[lit->getID()].end(); ++iterator) {
+						if((*iterator) == enc_opID) continue;
+						z3_solver->add(!sta_action_vars[enc_opID][enc_expression_h] || !sta_action_vars[(*iterator)][enc_expression_h]);
 					}
-					break;
-				case VAL::E_AT_END:
-					if(enc_cond_neg) {
-						z3_solver->add(implies(end_action_vars[enc_opID][h], !pre_literal_vars[lit->getID()][h]));
-					} else {
-						z3_solver->add(implies(end_action_vars[enc_opID][h], pre_literal_vars[lit->getID()][h]));
+				} else {
+					z3_solver->add(implies(sta_action_vars[enc_opID][enc_expression_h], pre_literal_vars[lit->getID()][enc_expression_h]));
+					// mutual exclusion
+					std::vector<int>::const_iterator iterator = simpleStartDelEffects[lit->getID()].begin();
+					for (; iterator != simpleStartDelEffects[lit->getID()].end(); ++iterator) {
+						if((*iterator) == enc_opID) continue;
+						z3_solver->add(!sta_action_vars[enc_opID][enc_expression_h] || !sta_action_vars[(*iterator)][enc_expression_h]);
 					}
-					break;
-				case VAL::E_OVER_ALL:
-					if(enc_cond_neg) {
-						z3_solver->add(implies(run_action_vars[enc_opID][h], !pre_literal_vars[lit->getID()][h]));
-					} else {
-						z3_solver->add(implies(run_action_vars[enc_opID][h], pre_literal_vars[lit->getID()][h]));
-					}
-					break;
 				}
+				break;
+			case VAL::E_AT_END:
+				if(enc_cond_neg) {
+					z3_solver->add(implies(end_action_vars[enc_opID][enc_expression_h], !pre_literal_vars[lit->getID()][enc_expression_h]));
+				} else {
+					z3_solver->add(implies(end_action_vars[enc_opID][enc_expression_h], pre_literal_vars[lit->getID()][enc_expression_h]));
+				}
+				break;
+			case VAL::E_OVER_ALL:
+				if(enc_cond_neg) {
+					z3_solver->add(implies(run_action_vars[enc_opID][enc_expression_h], !pre_literal_vars[lit->getID()][enc_expression_h]));
+				} else {
+					z3_solver->add(implies(run_action_vars[enc_opID][enc_expression_h], pre_literal_vars[lit->getID()][enc_expression_h]));
+				}
+				break;
 			}
 			break;
 
@@ -492,23 +517,41 @@ namespace SMTPlan {
 		enc_expression_stack.pop_back();
 
 		// generate SMT comparison
-		z3::expr com = (lhs == rhs);
+		z3::expr com = (rhs == lhs);
 		switch(c->getOp()) {
-		case VAL::E_GREATER: com = (lhs > rhs); break;
-		case VAL::E_GREATEQ: com = (lhs >= rhs); break;
-		case VAL::E_LESS: com = (lhs < rhs); break;
-		case VAL::E_LESSEQ: com = (lhs <= rhs); break;
-		case VAL::E_EQUALS: com = (lhs == rhs); break;
+		case VAL::E_GREATER: com = (rhs > lhs); break;
+		case VAL::E_GREATEQ: com = (rhs >= lhs); break;
+		case VAL::E_LESS: com = (rhs < lhs); break;
+		case VAL::E_LESSEQ: com = (rhs <= lhs); break;
+		case VAL::E_EQUALS: com = (rhs == lhs); break;
 		}
 
 		// encode planning constraint		
 		switch(enc_state) {
 
 		case ENC_GOAL:
+			{
+				std::stringstream ss;
+				ss << com;
+				z3::expr g = z3_context->bool_const(ss.str().c_str());
+				z3_solver->add(implies(g,com));
+				goal_expression.push_back(g);
+			}
 			break;
 
 		case ENC_ACTION_CONDITION:
-			break;
+			switch(enc_cond_time) {
+			case VAL::E_AT_START:
+				z3_solver->add(implies(sta_action_vars[enc_opID][enc_expression_h], com));
+				break;
+			case VAL::E_AT_END:
+				z3_solver->add(implies(end_action_vars[enc_opID][enc_expression_h], com));
+				break;
+			case VAL::E_OVER_ALL:
+				z3_solver->add(implies(sta_action_vars[enc_opID][enc_expression_h], com));
+				z3_solver->add(implies(end_action_vars[enc_opID][enc_expression_h], com));
+				break;
+			}
 
 		case ENC_ACTION_DURATION:
 			z3_solver->add(implies(sta_action_vars[enc_opID][enc_expression_h], com));
@@ -529,6 +572,7 @@ namespace SMTPlan {
 	/*---------*/
 
 	void Encoder::visit_effect_lists(VAL::effect_lists * e) {
+
 		e->add_effects.pc_list<VAL::simple_effect*>::visit(this);
 
 		enc_eff_neg = true;
@@ -537,17 +581,15 @@ namespace SMTPlan {
 
 		e->forall_effects.pc_list<VAL::forall_effect*>::visit(this);
 		e->cond_effects.pc_list<VAL::cond_effect*>::visit(this);
-		e->timed_effects.pc_list<VAL::timed_effect*>::visit(this);
+		e->cond_assign_effects.pc_list<VAL::cond_effect*>::visit(this);
 		e->assign_effects.pc_list<VAL::assignment*>::visit(this);
+		e->timed_effects.pc_list<VAL::timed_effect*>::visit(this);
 	}
 
 	void Encoder::visit_timed_effect(VAL::timed_effect * e) {
 		enc_eff_time = e->ts;
 		e->effs->visit(this);
 	};
-
-	void Encoder::visit_forall_effect(VAL::forall_effect * e) {std::cout << "not implemented forall" << std::endl;};
-	void Encoder::visit_cond_effect(VAL::cond_effect * e) {std::cout << "not implemented cond" << std::endl;};
 
 	void Encoder::visit_simple_effect(VAL::simple_effect * e) {
 		Inst::Literal * l = new Inst::Literal(e->prop, fe);
@@ -558,27 +600,25 @@ namespace SMTPlan {
 		switch(enc_state) {
 
 		case ENC_ACTION_EFFECT:
-			for(int h=next_layer;h<upper_bound;h++) {
-				switch(enc_eff_time) {
-				case VAL::E_AT_START:
-					if(enc_eff_neg) {
-						z3_solver->add(implies(sta_action_vars[enc_opID][h], !pos_literal_vars[lit->getID()][h]));
-						if(h==0) simpleStartDelEffects[lit->getID()].push_back(enc_opID);
-					} else {
-						z3_solver->add(implies(sta_action_vars[enc_opID][h], pos_literal_vars[lit->getID()][h]));
-						if(h==0) simpleStartAddEffects[lit->getID()].push_back(enc_opID);
-					}
-					break;
-				case VAL::E_AT_END:
-					if(enc_eff_neg) {
-						z3_solver->add(implies(end_action_vars[enc_opID][h], !pos_literal_vars[lit->getID()][h]));
-						if(h==0) simpleEndDelEffects[lit->getID()].push_back(enc_opID);
-					} else {
-						z3_solver->add(implies(end_action_vars[enc_opID][h], pos_literal_vars[lit->getID()][h]));
-						if(h==0) simpleEndAddEffects[lit->getID()].push_back(enc_opID);
-					}
-					break;
+			switch(enc_eff_time) {
+			case VAL::E_AT_START:
+				if(enc_eff_neg) {
+					z3_solver->add(implies(sta_action_vars[enc_opID][enc_expression_h], !pos_literal_vars[lit->getID()][enc_expression_h]));
+					if(enc_expression_h==0) simpleStartDelEffects[lit->getID()].push_back(enc_opID);
+				} else {
+					z3_solver->add(implies(sta_action_vars[enc_opID][enc_expression_h], pos_literal_vars[lit->getID()][enc_expression_h]));
+					if(enc_expression_h==0) simpleStartAddEffects[lit->getID()].push_back(enc_opID);
 				}
+				break;
+			case VAL::E_AT_END:
+				if(enc_eff_neg) {
+					z3_solver->add(implies(end_action_vars[enc_opID][enc_expression_h], !pos_literal_vars[lit->getID()][enc_expression_h]));
+					if(enc_expression_h==0) simpleEndDelEffects[lit->getID()].push_back(enc_opID);
+				} else {
+					z3_solver->add(implies(end_action_vars[enc_opID][enc_expression_h], pos_literal_vars[lit->getID()][enc_expression_h]));
+					if(enc_expression_h==0) simpleEndAddEffects[lit->getID()].push_back(enc_opID);
+				}
+				break;
 			}
 			break;
 
@@ -589,6 +629,70 @@ namespace SMTPlan {
 
 		delete l;
 	}
+
+	void Encoder::visit_assignment(VAL::assignment * e) {
+
+		Inst::PNE * l = new Inst::PNE(e->getFTerm(), fe);	
+		Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
+
+		if (!lit) return;
+
+		// value
+		e->getExpr()->visit(this);
+		z3::expr expr = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+
+		// function
+		enc_pneID = lit->getID();
+		enc_function_symbol = l->getHead()->getName();
+		z3::expr * opExpr;
+		switch(enc_eff_time) {
+		case VAL::E_AT_START:
+			opExpr = &sta_action_vars[enc_opID][enc_expression_h];
+			if(enc_expression_h==0) {
+				simpleStartAssignEffects[lit->getID()];
+				simpleStartAssignEffects[lit->getID()].push_back(std::pair<int,z3::expr>(enc_opID, expr));
+			}
+			break;
+		case VAL::E_AT_END:
+			opExpr = &end_action_vars[enc_opID][enc_expression_h];
+			if(enc_expression_h==0) {
+				simpleEndAssignEffects[lit->getID()];
+				simpleEndAssignEffects[lit->getID()].push_back(std::pair<int,z3::expr>(enc_opID, expr));
+			}
+			break;
+		default:
+			std::cerr << "Visit assignment without time spec!" << std::endl;
+			break;
+		}
+
+		// operator
+		VAL::assign_op op = e->getOp();
+		switch(op) {
+		case VAL::E_ASSIGN:
+			z3_solver->add(implies(*opExpr, (pos_function_vars[enc_pneID][enc_expression_h] == expr)));
+			break;
+		case VAL::E_INCREASE:
+			z3_solver->add(implies(*opExpr, (pos_function_vars[enc_pneID][enc_expression_h] == (expr + pre_function_vars[enc_pneID][enc_expression_h]))));
+			break;
+		case VAL::E_DECREASE:
+			z3_solver->add(implies(*opExpr, (pos_function_vars[enc_pneID][enc_expression_h] == (pre_function_vars[enc_pneID][enc_expression_h] - expr))));
+			break;
+		case VAL::E_SCALE_UP:
+			z3_solver->add(implies(*opExpr, (pos_function_vars[enc_pneID][enc_expression_h] == (expr * pre_function_vars[enc_pneID][enc_expression_h]))));
+			break;
+		case VAL::E_SCALE_DOWN:
+			z3_solver->add(implies(*opExpr, (pos_function_vars[enc_pneID][enc_expression_h] == (pre_function_vars[enc_pneID][enc_expression_h] / expr))));
+			break;
+		case VAL::E_ASSIGN_CTS:
+			std::cerr << "not implemented assign CTS" << std::endl;
+			break;
+		}
+		delete l;
+	}
+
+	void Encoder::visit_forall_effect(VAL::forall_effect * e) {std::cout << "not implemented forall" << std::endl;};
+	void Encoder::visit_cond_effect(VAL::cond_effect * e) {std::cout << "not implemented cond" << std::endl;};
 
 	/*-------------*/
 	/* expressions */
@@ -673,27 +777,7 @@ namespace SMTPlan {
 		std::stringstream ss;
 		ss << s->double_value();
 		z3::expr dv = z3_context->real_val(ss.str().c_str());
-
-		switch(enc_state) {
-		
-		case ENC_INIT:
-			// initial state assignments
-			if(problem_info->staticFunctionMap[enc_function_symbol]) {
-				problem_info->staticFunctionValues[enc_pneID] = s->double_value();
-			} else {
-				z3_solver->add(pre_function_vars[enc_pneID][0] == dv);
-			}
-			break;
-
-		case ENC_ACTION_DURATION:
-		case ENC_ACTION_CONDITION:
-			enc_expression_stack.push_back(dv);
-			break;
-
-		default:
-			std::cerr << "Visit float expression without correct state! (" << enc_state << ")" << std::endl;
-			break;
-		}
+		enc_expression_stack.push_back(dv);
 	}
 
 	void Encoder::visit_func_term(VAL::func_term * s) {
@@ -701,6 +785,17 @@ namespace SMTPlan {
 		Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
 		
 		switch(enc_state) {
+
+		case ENC_GOAL:
+			if(problem_info->staticFunctionMap[l->getHead()->getName()]) {
+				std::stringstream ss;
+				ss << problem_info->staticFunctionValues[lit->getID()];
+				z3::expr dv = z3_context->real_val(ss.str().c_str());
+				enc_expression_stack.push_back(dv);
+			} else {
+				enc_expression_stack.push_back(pos_function_vars[lit->getID()][enc_expression_h]);
+			}
+			break;
 
 		case ENC_ACTION_DURATION:
 		case ENC_ACTION_CONDITION:
@@ -749,7 +844,10 @@ namespace SMTPlan {
 			break;
 
 		case VAL::E_HASHT:
+			std::cerr << "#t used in expression, but not implemented!" << std::endl;
+			break;
 		case VAL::E_TOTAL_TIME:
+			std::cerr << "Total time used in expression, but not implemented!" << std::endl;
 			break;
 		}
 	}
