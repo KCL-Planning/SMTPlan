@@ -5,6 +5,7 @@
 #include "SMTPlan/PlannerOptions.h"
 #include "SMTPlan/ProblemInfo.h"
 #include "SMTPlan/Encoder.h"
+#include "SMTPlan/Algebraist.h"
 
 #include <ctime>
 #include <cstdio>
@@ -178,6 +179,12 @@ int main (int argc, char *argv[]) {
 	}
 
 	if(options.verbose) fprintf(stdout,"Grounded:\t%f seconds\n", getElapsed());
+
+	// calculate boundary expressions for continuous change
+	SMTPlan::Algebraist algebraist(VAL::current_analysis, options, pi);
+	algebraist.processDomain();
+
+	if(options.verbose) fprintf(stdout,"Algebra:\t%f seconds\n", getElapsed());
 
 	// begin search loop
 	SMTPlan::Encoder encoder(VAL::current_analysis, options, pi);

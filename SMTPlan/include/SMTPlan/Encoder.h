@@ -1,5 +1,7 @@
 /**
- * This file describes the parser.
+ * This file describes the Encoder class. This class
+ * is used to create encodings of a PDDL domain and 
+ * problem pair.
  */
 #include <sstream>
 #include <string>
@@ -23,7 +25,6 @@
 
 namespace SMTPlan
 {
-
 	enum EncState
 	{
 		ENC_NONE,

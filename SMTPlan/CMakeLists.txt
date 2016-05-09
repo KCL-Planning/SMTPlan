@@ -9,6 +9,8 @@ set (SMTPlan_VERSION_MINOR 9)
 ## Configure ##
 ##-----------##
 
+SET(CMAKE_CXX_FLAGS "-std=c++0x")
+
 set (PROJECT_SOURCE_DIR src)
 
 ## configure a header file for CMake settings
@@ -28,6 +30,9 @@ include_directories("${PROJECT_BINARY_DIR}")
 find_package(FLEX REQUIRED)
 find_package(PythonLibs REQUIRED)
 find_package(SymEngine 0.1.0 CONFIG)
+find_package(GMP REQUIRED)
+find_package(MPFR REQUIRED)
+find_package(Boost REQUIRED thread)
 
 ## include directories
 include_directories (include)
@@ -36,6 +41,8 @@ include_directories (src/VALfiles/src)
 include_directories (src/VALfiles/include)
 include_directories(${PYTHON_INCLUDE_DIRS})
 include_directories(${SYMENGINE_INCLUDE_DIRS})
+include_directories(${GMP_INCLUDE_DIR})
+include_directories(${MPFR_INCLUDE_DIR})
 
 ## val sources
 set(VAL_SOURCES
@@ -54,14 +61,15 @@ set(VAL_SOURCES
 ## SMTPLAN sources
 set(SMTPLAN_SOURCES
 	src/SMTPlan.cpp
+	src/Algebraist.cpp
 	src/Encoder.cpp)
 
 ## Declare cpp executables
 add_executable(SMTPlan ${SMTPLAN_SOURCES} ${VAL_SOURCES})
-target_link_libraries(SMTPlan ${Boost_LIBRARIES} z3 ${SYMENGINE_LIBRARIES})
+target_link_libraries(SMTPlan ${Boost_LIBRARIES} z3 ${Boost_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES})
 
-add_executable(test_python src/test_python.cpp)
-target_link_libraries(test_python ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${SYMENGINE_INCLUDE_DIRS})
+#add_executable(test_python src/test_python.cpp)
+#target_link_libraries(test_python ${Boost_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES})
 
 # add the install targets
 install (TARGETS SMTPlan DESTINATION bin)
