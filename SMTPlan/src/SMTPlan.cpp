@@ -187,7 +187,7 @@ int main (int argc, char *argv[]) {
 	if(options.verbose) fprintf(stdout,"Algebra:\t%f seconds\n", getElapsed());
 
 	// begin search loop
-	SMTPlan::Encoder encoder(VAL::current_analysis, options, pi);
+	SMTPlan::Encoder encoder(&algebraist, VAL::current_analysis, options, pi);
 	for(int i=options.lower_bound; (options.upper_bound<0 || i<=options.upper_bound); i+=options.step_size) {
 
 		// generate encoding
@@ -203,6 +203,7 @@ int main (int argc, char *argv[]) {
 
 		// solve
 		z3::check_result result = encoder.solve();
+
 		if(result == z3::sat) {
 			encoder.printModel();
 			if(options.verbose) {

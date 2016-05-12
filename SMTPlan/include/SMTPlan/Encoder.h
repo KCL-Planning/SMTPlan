@@ -9,7 +9,7 @@
 #include <iostream>
 #include <vector>
 
-#include"z3++.h"
+#include "z3++.h"
 
 #include "ptree.h"
 #include "instantiation.h"
@@ -19,6 +19,7 @@
 
 #include "SMTPlan/PlannerOptions.h"
 #include "SMTPlan/ProblemInfo.h"
+#include "SMTPlan/Algebraist.h"
 
 #ifndef KCL_encoder
 #define KCL_encoder
@@ -50,6 +51,7 @@ namespace SMTPlan
 		ProblemInfo * problem_info;
 		VAL::FastEnvironment * fe;
 		VAL::analysis * val_analysis;
+		Algebraist * algebraist;
 
 		/* encoding state */
 		EncState enc_state;
@@ -83,6 +85,7 @@ namespace SMTPlan
 		void encodeTimings(int H);
 		void encodeLiteralVariableSupport(int H);
 		void encodeFunctionVariableSupport(int H);
+		void encodeFunctionFlows(int H);
 		void encodeGoalState(int H);
 		void encodeInitialState();
 
@@ -103,12 +106,13 @@ namespace SMTPlan
 
 	public:
 
-		Encoder(VAL::analysis* analysis, PlannerOptions &options, ProblemInfo &pi)
+		Encoder(Algebraist * alg, VAL::analysis* analysis, PlannerOptions &options, ProblemInfo &pi)
 		{
 			next_layer = 0;
 
 			problem_info = &pi;
 			val_analysis = analysis;
+			algebraist = alg;
 			const int pneCount = Inst::instantiatedOp::howManyPNEs();
 			const int litCount = Inst::instantiatedOp::howManyLiterals();
 			const int actCount = Inst::instantiatedOp::howMany();
@@ -132,7 +136,8 @@ namespace SMTPlan
 			z3::config cfg;
 			cfg.set("auto_config", true);
 			z3_context = new z3::context(cfg);
-			z3_solver = new z3::solver(*z3_context);
+			z3_tactic = new z3::tactic(*z3_context, "qfnra-nlsat");
+			z3_solver = new z3::solver(*z3_context, z3_tactic->mk_solver());
 		}
 
 		/* encoding methods */
@@ -176,6 +181,7 @@ namespace SMTPlan
 
 		/* solving */
 		z3::context * z3_context;
+		z3::tactic * z3_tactic;
 		z3::solver * z3_solver;
 		z3::check_result solve();
 		void printModel();

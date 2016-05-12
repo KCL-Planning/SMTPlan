@@ -63,6 +63,12 @@ namespace SMTPlan
 
 	class Algebraist : public VAL::VisitController
 	{
+	public:
+
+		std::map<int,FunctionFlow*> function_flow;
+		std::map<std::string, int> function_id_map;
+		std::map<int, std::string> predicate_head_map;
+
 	private:
 
 		/* problem info */
@@ -73,10 +79,10 @@ namespace SMTPlan
 
 		/* piranha environment */
 		piranha::environment env;
-		std::map<int,FunctionFlow*> function_flow;
+		std::string alg_function_symbol;
 		std::vector<pexpr> alg_expression_stack;
 		std::set<int> alg_dependency_stack;
-		std::string alg_function_symbol;
+
 		std::map<int, pexpr> function_var;
 		pexpr hasht{"hasht"};
 
@@ -86,10 +92,13 @@ namespace SMTPlan
 			map<int,pexpr>::iterator fit = function_var.find(lit->getID());
 			if(fit != function_var.end()) return;
 
+
 			std::stringstream ss;
 			ss << (*lit);
 			pexpr fv = pexpr{ss.str()};			
 			function_var[lit->getID()] = fv;
+			function_id_map[ss.str()] = lit->getID();
+			predicate_head_map[lit->getID()] = lit->getHead()->getName();
 
 			map<int,FunctionFlow*>::iterator it = function_flow.find(lit->getID());
 			if(it == function_flow.end()) {

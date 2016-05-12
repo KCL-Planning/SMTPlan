@@ -130,7 +130,7 @@ namespace SMTPlan {
 			Inst::instantiatedOp * const currOp = *opsItr;
 		    alg_opID = currOp->getID() + 1;
 			fe = currOp->getEnv();
-			currOp->forOp()->visit(this);	
+			currOp->forOp()->visit(this);
 		}
 
 		map<int,FunctionFlow*>::iterator fit = function_flow.begin();
@@ -138,19 +138,6 @@ namespace SMTPlan {
 			fit->second->createChildren(function_flow);
 			fit->second->integrate();
 		}
-
-map<int,FunctionFlow*>::iterator it = function_flow.begin();
-for (; it != function_flow.end(); ++it) {
-	if(it->second->flows.size()==0) continue;
-	std::cout << "---" << it->second->function_var << "---" << std::endl;
-	std::cout << "flows" << std::endl;
-	std::vector<SingleFlow>::iterator fit = it->second->flows.begin();
-	for (; fit != it->second->flows.end(); fit++) {
-		std::set<int>::iterator kit = fit->operators.begin();
-		for(; kit!=fit->operators.end(); kit++) std::cout << *kit << " ";
-		std::cout << ": " << fit->polynomial << std::endl;
-	}
-}
 	}
 
 	/*-----------*/

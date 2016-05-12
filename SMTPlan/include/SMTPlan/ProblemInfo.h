@@ -17,7 +17,7 @@ namespace SMTPlan
 	{
 		std::map<std::string,bool> staticPredicateMap;
 		std::map<std::string,bool> staticFunctionMap;
-		std::map<int,double> staticFunctionValues;
+		std::map<int,z3::expr> staticFunctionValues;
 	};
 
 } // close namespace

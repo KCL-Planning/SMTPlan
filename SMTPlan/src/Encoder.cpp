@@ -8,6 +8,7 @@ namespace SMTPlan {
 	int enc_pneID;
 	int enc_opID;
 
+	bool enc_continuous;
 	bool enc_cond_neg;
 	bool enc_eff_neg;
 	VAL::time_spec enc_cond_time;
@@ -63,7 +64,7 @@ namespace SMTPlan {
 			Inst::instantiatedOp * const currOp = *opsItr;
 		    enc_opID = currOp->getID();
 			fe = currOp->getEnv();
-			currOp->forOp()->visit(this);	
+			currOp->forOp()->visit(this);
 		}
 
 		// literal constraints
@@ -84,6 +85,7 @@ namespace SMTPlan {
 			if(problem_info->staticFunctionMap[currPNE->getHead()->getName()]) continue;
 		    enc_pneID = currPNE->getID();
 			encodeFunctionVariableSupport(H);
+			encodeFunctionFlows(H);
 		}
 
 		next_layer = upper_bound;
@@ -243,6 +245,7 @@ namespace SMTPlan {
 			const VAL::assignment* effect = *ci;
 			Inst::PNE * l = new Inst::PNE(effect->getFTerm(), fe);	
 			Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
+
 			enc_pneID = lit->getID();
 			enc_function_symbol = l->getHead()->getName();
 
@@ -251,8 +254,8 @@ namespace SMTPlan {
 			z3::expr expr = enc_expression_stack.back();
 			enc_expression_stack.pop_back();
 
-			if(problem_info->staticFunctionMap[enc_function_symbol]) {
-				problem_info->staticFunctionValues[enc_pneID] = expr;
+			if(problem_info->staticFunctionMap[lit->getHead()->getName()]) {
+				problem_info->staticFunctionValues.insert(std::make_pair(enc_pneID,expr));
 			} else {
 				z3_solver->add(pre_function_vars[enc_pneID][0] == expr);
 			}
@@ -272,8 +275,10 @@ namespace SMTPlan {
 		enc_state = ENC_GOAL;
 		enc_expression_h = upper_bound-1;
 		goal_expression.clear();
+
 		VAL::goal* goal = val_analysis->the_problem->the_goal;
 		goal->visit(this);
+
 		enc_state = ENC_NONE;
 	}
 
@@ -332,6 +337,8 @@ namespace SMTPlan {
 
 			enc_state = ENC_NONE;
 		}
+
+		goal_expression.push_back(!run_action_vars[enc_opID][upper_bound-1]);
 	}
 
 	void Encoder::visit_action(VAL::action * o) {
@@ -412,12 +419,95 @@ namespace SMTPlan {
 			}
 			chargs.push_back(pos_function_vars[enc_pneID][h] == pre_function_vars[enc_pneID][h]);
 			z3_solver->add(mk_or(chargs));
+		}
+	}
+
+	/**
+	 */
+	void Encoder::encodeFunctionFlows(int H) {
+
+		FunctionFlow * flow = algebraist->function_flow[enc_pneID];
+		if(!flow) return;
+
+		for(int h=next_layer;h<H;h++) {
 
 			// between happenings
 			if(h<=0) continue;
 
-			// remain or change over time
-			z3_solver->add(pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h-1]);
+			bool nchargsSet = false;
+			z3::expr_vector nchargs(*z3_context);
+
+			// !continuous => (function_{i+1} == function_i)
+			if(flow->flows.empty()) {
+				z3_solver->add(pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h-1]);
+				continue;
+			}
+
+			std::vector<SingleFlow>::iterator fit = flow->flows.begin();
+			for(; fit != flow->flows.end(); fit++) {
+				// conjunction of operators
+				z3::expr_vector chargs(*z3_context);
+				std::set<int>::const_iterator iit = fit->operators.begin();
+				for (; iit != fit->operators.end(); ++iit) {
+					if(*iit < 0) {
+						chargs.push_back(!run_action_vars[-1*(*iit)-1][h-1]);
+						if(!nchargsSet) nchargs.push_back(!run_action_vars[-1*(*iit)-1][h-1]);
+					} else {
+						chargs.push_back(run_action_vars[(*iit)-1][h-1]);
+						if(!nchargsSet) nchargs.push_back(!run_action_vars[(*iit)-1][h-1]);
+					}
+				}
+
+				// !conjunction_operators => (function_{i+1} == function_i)
+				if(!nchargsSet) {
+					z3_solver->add(implies( mk_and(nchargs), pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h-1]));
+					nchargsSet = true;
+				}
+
+				//conjunction_operators => (function_{i+1} == function_i + flow_i)
+				auto it = fit->polynomial._container().begin();
+				auto end = fit->polynomial._container().end();
+				auto args = fit->polynomial.get_symbol_set();
+
+				z3::expr flow = z3_context->real_val(0);
+				for (; it != end;) {
+					// rational coefficient of term
+					std::stringstream ss;
+					ss << it->m_cf;
+					z3::expr coeff = z3_context->real_val(ss.str().c_str());
+/*
+TODO the integration from piranha is missing the constants of integration.
+This measn for instance that the distance travelled in the car domain is:
+	1/2*a*t**2
+and not:
+	1/2*a*t**2 + v0*t
+This must be rectified in the Algebraist.
+*/
+					// symbols
+					for (int i = 0; i < it->m_key.size(); i++) {
+						if (it->m_key[i] != pexpr(0)) {
+							z3::expr sym = duration_vars[h-1];
+							if(args[i].get_name() != "hasht") {
+								int fID = algebraist->function_id_map[args[i].get_name()];
+								if(problem_info->staticFunctionMap[algebraist->predicate_head_map[fID]]) {
+									/*std::stringstream ss;
+									ss << */
+									sym = problem_info->staticFunctionValues.find(fID)->second;//z3_context->real_val(ss.str().c_str());
+								} else {
+									sym = pos_function_vars[fID][h];
+								}
+							}
+							z3::expr arg = sym;
+							if (it->m_key[i] != pexpr(1))
+								arg = z3::pw(arg, it->m_key[i]);
+							coeff = (coeff * arg);
+						}
+					}
+					++it;
+					flow = (flow + coeff);
+				}
+				z3_solver->add(implies( mk_and(chargs), pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h-1] + flow));
+			}
 		}
 	}
 
@@ -552,6 +642,7 @@ namespace SMTPlan {
 				z3_solver->add(implies(end_action_vars[enc_opID][enc_expression_h], com));
 				break;
 			}
+			break;
 
 		case ENC_ACTION_DURATION:
 			z3_solver->add(implies(sta_action_vars[enc_opID][enc_expression_h], com));
@@ -638,7 +729,12 @@ namespace SMTPlan {
 		if (!lit) return;
 
 		// value
+		enc_continuous = false;
 		e->getExpr()->visit(this);
+		if(enc_continuous) {
+			return;
+		}
+
 		z3::expr expr = enc_expression_stack.back();
 		enc_expression_stack.pop_back();
 
@@ -788,10 +884,11 @@ namespace SMTPlan {
 
 		case ENC_GOAL:
 			if(problem_info->staticFunctionMap[l->getHead()->getName()]) {
-				std::stringstream ss;
+				/*std::stringstream ss;
 				ss << problem_info->staticFunctionValues[lit->getID()];
 				z3::expr dv = z3_context->real_val(ss.str().c_str());
-				enc_expression_stack.push_back(dv);
+				enc_expression_stack.push_back(dv);*/
+				enc_expression_stack.push_back(problem_info->staticFunctionValues.find(lit->getID())->second);
 			} else {
 				enc_expression_stack.push_back(pos_function_vars[lit->getID()][enc_expression_h]);
 			}
@@ -799,18 +896,16 @@ namespace SMTPlan {
 
 		case ENC_ACTION_DURATION:
 		case ENC_ACTION_CONDITION:
-			if(problem_info->staticFunctionMap[l->getHead()->getName()]) {
-				std::stringstream ss;
+		case ENC_ACTION_EFFECT:
+			if(problem_info->staticFunctionMap[lit->getHead()->getName()]) {
+				/*std::stringstream ss;
 				ss << problem_info->staticFunctionValues[lit->getID()];
 				z3::expr dv = z3_context->real_val(ss.str().c_str());
-				enc_expression_stack.push_back(dv);
+				enc_expression_stack.push_back(dv);*/
+				enc_expression_stack.push_back(problem_info->staticFunctionValues.find(lit->getID())->second);
 			} else {
-				enc_expression_stack.push_back(pre_function_vars[lit->getID()][enc_expression_h]);
+				enc_expression_stack.push_back(pos_function_vars[lit->getID()][enc_expression_h]);
 			}
-			break;
-
-		case ENC_ACTION_EFFECT:
-			enc_expression_stack.push_back(pos_function_vars[lit->getID()][enc_expression_h]);
 			break;
 
 		default:
@@ -844,7 +939,12 @@ namespace SMTPlan {
 			break;
 
 		case VAL::E_HASHT:
-			std::cerr << "#t used in expression, but not implemented!" << std::endl;
+			enc_continuous = true;
+			switch(enc_state) {
+			case ENC_ACTION_EFFECT:
+				enc_expression_stack.push_back(dur_action_vars[enc_opID][enc_expression_h]);
+				break;
+			}
 			break;
 		case VAL::E_TOTAL_TIME:
 			std::cerr << "Total time used in expression, but not implemented!" << std::endl;
