@@ -41,3 +41,7 @@ Options:
 ```
 
 For example: `./SMTPlan domain.pddl problem.pddl -l 4 -u 10 -s 2`
+
+## More information
+
+For more information on SMTPlan, visit the website: http://kcl-planning.github.io/SMTPlan/
