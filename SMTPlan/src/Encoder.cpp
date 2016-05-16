@@ -460,7 +460,7 @@ namespace SMTPlan {
 
 				// !conjunction_operators => (function_{i+1} == function_i)
 				if(!nchargsSet) {
-					z3_solver->add(implies( mk_and(nchargs), pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h-1]));
+					z3_solver->add(implies( mk_and(nchargs), (pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h-1])));
 					nchargsSet = true;
 				}
 
@@ -468,45 +468,49 @@ namespace SMTPlan {
 				auto it = fit->polynomial._container().begin();
 				auto end = fit->polynomial._container().end();
 				auto args = fit->polynomial.get_symbol_set();
-
+std::cout << flow->function_string << std::endl;
+std::cout << fit->polynomial << std::endl;
 				z3::expr flow = z3_context->real_val(0);
 				for (; it != end;) {
 					// rational coefficient of term
 					std::stringstream ss;
 					ss << it->m_cf;
 					z3::expr coeff = z3_context->real_val(ss.str().c_str());
-/*
-TODO the integration from piranha is missing the constants of integration.
-This measn for instance that the distance travelled in the car domain is:
-	1/2*a*t**2
-and not:
-	1/2*a*t**2 + v0*t
-This must be rectified in the Algebraist.
-*/
+
 					// symbols
 					for (int i = 0; i < it->m_key.size(); i++) {
 						if (it->m_key[i] != pexpr(0)) {
+							// default symbol: #t
 							z3::expr sym = duration_vars[h-1];
 							if(args[i].get_name() != "hasht") {
-								int fID = algebraist->function_id_map[args[i].get_name()];
-								if(problem_info->staticFunctionMap[algebraist->predicate_head_map[fID]]) {
-									/*std::stringstream ss;
-									ss << */
-									sym = problem_info->staticFunctionValues.find(fID)->second;//z3_context->real_val(ss.str().c_str());
+								if(algebraist->function_id_map.find(args[i].get_name()) == algebraist->function_id_map.end()) {
+									// symbol: real value
+									sym = z3_context->real_val(args[i].get_name().c_str());
 								} else {
-									sym = pos_function_vars[fID][h];
+									// symbol: function name
+									int fID = algebraist->function_id_map[args[i].get_name()];
+									if(problem_info->staticFunctionMap[algebraist->predicate_head_map[fID]]) {
+										sym = problem_info->staticFunctionValues.find(fID)->second;
+									} else {
+										sym = pos_function_vars[fID][h-1];
+									}
 								}
 							}
 							z3::expr arg = sym;
 							if (it->m_key[i] != pexpr(1))
 								arg = z3::pw(arg, it->m_key[i]);
+std::cout << "coe\t" << coeff << std::endl;
+std::cout << "arg\t" << arg << std::endl;
 							coeff = (coeff * arg);
 						}
 					}
 					++it;
 					flow = (flow + coeff);
+std::cout << flow << std::endl;
+std::cout << "-----" << std::endl;
 				}
-				z3_solver->add(implies( mk_and(chargs), pre_function_vars[enc_pneID][h] == pos_function_vars[enc_pneID][h-1] + flow));
+std::cout << "----------------" << std::endl;
+				z3_solver->add(implies( mk_and(chargs), pre_function_vars[enc_pneID][h] == flow));
 			}
 		}
 	}
@@ -638,7 +642,7 @@ This must be rectified in the Algebraist.
 				z3_solver->add(implies(end_action_vars[enc_opID][enc_expression_h], com));
 				break;
 			case VAL::E_OVER_ALL:
-				z3_solver->add(implies(sta_action_vars[enc_opID][enc_expression_h], com));
+				z3_solver->add(implies(run_action_vars[enc_opID][enc_expression_h], com));
 				z3_solver->add(implies(end_action_vars[enc_opID][enc_expression_h], com));
 				break;
 			}

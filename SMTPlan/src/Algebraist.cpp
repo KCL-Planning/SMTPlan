@@ -64,11 +64,12 @@ namespace SMTPlan {
 
 			// dependency is constant
 			if(dep->flows.size() == 0) {
-				resolvedFlows.push_back(currentFlow);
+				flows.push_back(currentFlow);
 				continue;
 			}
 
 			// for each single flow of the dependency
+			bool dep_op_distinct = true;
 			std::vector<SingleFlow>::iterator fit = dep->flows.begin();
 			for(; fit!=dep->flows.end(); fit++) {
 
@@ -76,7 +77,7 @@ namespace SMTPlan {
 				std::vector<int>::iterator it = std::set_difference(
 						fit->operators.begin(),fit->operators.end(),
 						currentFlow.operators.begin(), currentFlow.operators.end(), v.begin());
-				v.resize(it-v.begin());
+				v.resize(it - v.begin());
 
 				if(v.size() == 0) {
 
@@ -87,13 +88,31 @@ namespace SMTPlan {
 				} else {
 
 					// check if they are incompatible and skip
+					std::vector<int>::iterator vit = v.begin();
+					for(; vit!=v.end(); vit++) {
+						if(currentFlow.operators.find(-(*vit)) != currentFlow.operators.end())
+							continue;
+					}
 
 					// add the difference to the operators and substitute
+					SingleFlow newFlow;
+					newFlow.operators = currentFlow.operators;
+					newFlow.dependencies = currentFlow.dependencies;
+					newFlow.polynomial = currentFlow.polynomial;
+
+					newFlow.operators.insert(v.begin(), v.end());
+					newFlow.polynomial = currentFlow.polynomial.subs(dep->function_string, fit->polynomial);
+
+					flows.push_back(newFlow);
 
 					// if difference == dep->flows.size() every time, then we can also add a dep==constant entry
+					if(v.size() != 0) dep_op_distinct = false;
 
 				}
 			}
+			
+			// if all dependency flows were operator distinct, the dependency could be constant
+			if(dep_op_distinct) flows.push_back(currentFlow);
 		}
 
 		flows = resolvedFlows;
@@ -103,7 +122,22 @@ namespace SMTPlan {
 		std::vector<SingleFlow>::iterator fit = flows.begin();
 		for(; fit!=flows.end(); fit++) {
 			fit->polynomial = piranha::math::integrate(fit->polynomial,"hasht");
+			fit->polynomial = fit->polynomial + function_var;
 		}
+		integrated = true;
+	}
+
+	bool FunctionFlow::dependenciesResolved(std::map<int,FunctionFlow*> &allFlows) {
+
+		std::vector<SingleFlow>::iterator fit = flows.begin();
+		for(; fit!=flows.end(); fit++) {
+
+			std::set<int>::iterator dit = fit->dependencies.begin();
+			for(; dit!=fit->dependencies.end(); dit++) {
+				if(!allFlows[*dit]->integrated) return false;
+			}
+		}		
+		return true;
 	}
 
 	/*------------*/
@@ -133,10 +167,27 @@ namespace SMTPlan {
 			currOp->forOp()->visit(this);
 		}
 
-		map<int,FunctionFlow*>::iterator fit = function_flow.begin();
-		for (; fit != function_flow.end(); ++fit) {
-			fit->second->createChildren(function_flow);
-			fit->second->integrate();
+		bool allComplete = false;
+		while(!allComplete) {
+
+			allComplete = true;
+			map<int,FunctionFlow*>::iterator fit = function_flow.begin();
+			for (; fit != function_flow.end(); ++fit) {
+
+				// check completed
+				if(fit->second->integrated) {
+					continue;
+				}
+			
+				// check dependencies
+				if(!fit->second->dependenciesResolved(function_flow)) {
+					allComplete = false;
+					continue;
+				}
+
+				fit->second->createChildren(function_flow);
+				fit->second->integrate();
+			}
 		}
 	}
 

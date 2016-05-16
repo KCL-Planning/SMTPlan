@@ -57,7 +57,8 @@ namespace SMTPlan
 		~FunctionFlow() {}
 
 		void addExpression(int opID, std::set<int> deps, pexpr &expr);
-		void createChildren(std::map<int,FunctionFlow*> &flows);
+		void createChildren(std::map<int,FunctionFlow*> &allFlows);
+		bool dependenciesResolved(std::map<int,FunctionFlow*> &allFlows);
 		void integrate();
 	};
 

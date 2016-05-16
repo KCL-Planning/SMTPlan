@@ -9,8 +9,8 @@ set (SMTPlan_VERSION_MINOR 9)
 ## Configure ##
 ##-----------##
 
-SET(CMAKE_CXX_FLAGS "-std=c++0x")
-
+set(CMAKE_CXX_FLAGS "-std=c++0x")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules" "${CMAKE_SOURCE_DIR}/cmake_modules/yacma")
 set (PROJECT_SOURCE_DIR src)
 
 ## configure a header file for CMake settings
@@ -29,9 +29,14 @@ include_directories("${PROJECT_BINARY_DIR}")
 ## required
 find_package(FLEX REQUIRED)
 find_package(PythonLibs REQUIRED)
-find_package(SymEngine 0.1.0 CONFIG)
-find_package(GMP REQUIRED)
-find_package(MPFR REQUIRED)
+FIND_PACKAGE(GMP REQUIRED)
+MESSAGE(STATUS "GMP library found.")
+MESSAGE(STATUS "GMP include dir is: ${GMP_INCLUDE_DIR}")
+MESSAGE(STATUS "GMP library is: ${GMP_LIBRARIES}")
+FIND_PACKAGE(MPFR REQUIRED)
+MESSAGE(STATUS "MPFR library found.")
+MESSAGE(STATUS "MPFR include dir is: ${MPFR_INCLUDE_DIR}")
+MESSAGE(STATUS "MPFR library is: ${MPFR_LIBRARIES}")
 find_package(Boost REQUIRED thread)
 
 ## include directories
