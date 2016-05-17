@@ -465,52 +465,7 @@ namespace SMTPlan {
 				}
 
 				//conjunction_operators => (function_{i+1} == function_i + flow_i)
-				auto it = fit->polynomial._container().begin();
-				auto end = fit->polynomial._container().end();
-				auto args = fit->polynomial.get_symbol_set();
-std::cout << flow->function_string << std::endl;
-std::cout << fit->polynomial << std::endl;
-				z3::expr flow = z3_context->real_val(0);
-				for (; it != end;) {
-					// rational coefficient of term
-					std::stringstream ss;
-					ss << it->m_cf;
-					z3::expr coeff = z3_context->real_val(ss.str().c_str());
-
-					// symbols
-					for (int i = 0; i < it->m_key.size(); i++) {
-						if (it->m_key[i] != pexpr(0)) {
-							// default symbol: #t
-							z3::expr sym = duration_vars[h-1];
-							if(args[i].get_name() != "hasht") {
-								if(algebraist->function_id_map.find(args[i].get_name()) == algebraist->function_id_map.end()) {
-									// symbol: real value
-									sym = z3_context->real_val(args[i].get_name().c_str());
-								} else {
-									// symbol: function name
-									int fID = algebraist->function_id_map[args[i].get_name()];
-									if(problem_info->staticFunctionMap[algebraist->predicate_head_map[fID]]) {
-										sym = problem_info->staticFunctionValues.find(fID)->second;
-									} else {
-										sym = pos_function_vars[fID][h-1];
-									}
-								}
-							}
-							z3::expr arg = sym;
-							if (it->m_key[i] != pexpr(1))
-								arg = z3::pw(arg, it->m_key[i]);
-std::cout << "coe\t" << coeff << std::endl;
-std::cout << "arg\t" << arg << std::endl;
-							coeff = (coeff * arg);
-						}
-					}
-					++it;
-					flow = (flow + coeff);
-std::cout << flow << std::endl;
-std::cout << "-----" << std::endl;
-				}
-std::cout << "----------------" << std::endl;
-				z3_solver->add(implies( mk_and(chargs), pre_function_vars[enc_pneID][h] == flow));
+				z3_solver->add(implies( mk_and(chargs), pre_function_vars[enc_pneID][h] == mk_expr(fit->polynomial, h)));
 			}
 		}
 	}
@@ -605,6 +560,8 @@ std::cout << "----------------" << std::endl;
 		c->getLHS()->visit(this);
 		c->getRHS()->visit(this);
 
+		enc_expression_symbols.clear();
+
 		z3::expr lhs = enc_expression_stack.back();
 		enc_expression_stack.pop_back();
 		z3::expr rhs = enc_expression_stack.back();
@@ -644,6 +601,18 @@ std::cout << "----------------" << std::endl;
 			case VAL::E_OVER_ALL:
 				z3_solver->add(implies(run_action_vars[enc_opID][enc_expression_h], com));
 				z3_solver->add(implies(end_action_vars[enc_opID][enc_expression_h], com));
+				/*
+				// if function is continuous, must check derivatives
+				std::set<int>::iterator sit = enc_expression_symbols.begin();
+				for(; sit!=enc_expression_symbols.end(); sit++) {
+					std::map<int,FunctionFlow*>::iterator fit = algebraist->function_flow.begin();
+					for(; fit!=algebraist->function_flow.end(); fit++) {
+						std::vector<pexpr>::iterator dit = fit->second->derivatives.begin();
+						for(; dit!=fit->second->derivatives.end(); dit++) {
+							//*dit
+						}
+					}
+				}*/
 				break;
 			}
 			break;
@@ -888,10 +857,6 @@ std::cout << "----------------" << std::endl;
 
 		case ENC_GOAL:
 			if(problem_info->staticFunctionMap[l->getHead()->getName()]) {
-				/*std::stringstream ss;
-				ss << problem_info->staticFunctionValues[lit->getID()];
-				z3::expr dv = z3_context->real_val(ss.str().c_str());
-				enc_expression_stack.push_back(dv);*/
 				enc_expression_stack.push_back(problem_info->staticFunctionValues.find(lit->getID())->second);
 			} else {
 				enc_expression_stack.push_back(pos_function_vars[lit->getID()][enc_expression_h]);
@@ -902,10 +867,6 @@ std::cout << "----------------" << std::endl;
 		case ENC_ACTION_CONDITION:
 		case ENC_ACTION_EFFECT:
 			if(problem_info->staticFunctionMap[lit->getHead()->getName()]) {
-				/*std::stringstream ss;
-				ss << problem_info->staticFunctionValues[lit->getID()];
-				z3::expr dv = z3_context->real_val(ss.str().c_str());
-				enc_expression_stack.push_back(dv);*/
 				enc_expression_stack.push_back(problem_info->staticFunctionValues.find(lit->getID())->second);
 			} else {
 				enc_expression_stack.push_back(pos_function_vars[lit->getID()][enc_expression_h]);

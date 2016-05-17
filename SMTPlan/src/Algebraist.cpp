@@ -121,6 +121,16 @@ namespace SMTPlan {
 	void FunctionFlow::integrate() {
 		std::vector<SingleFlow>::iterator fit = flows.begin();
 		for(; fit!=flows.end(); fit++) {
+
+			// do derivatives first
+			fit->derivatives.push_back(fit->polynomial);
+			pexpr expr = fit->polynomial;
+			while(expr != 0) {
+				expr = piranha::math::partial(expr,"hasht");
+				if(expr!=0) fit->derivatives.push_back(expr);
+			}
+
+			// now do integration
 			fit->polynomial = piranha::math::integrate(fit->polynomial,"hasht");
 			fit->polynomial = fit->polynomial + function_var;
 		}
@@ -242,12 +252,11 @@ namespace SMTPlan {
 
 		// expression as derivative
 		expr = expr / hasht;
-
 		// operator
 		VAL::assign_op op = e->getOp();
 		switch(op) {
 		case VAL::E_DECREASE:
-			expr = -expr;
+			expr = -1*expr;
 		case VAL::E_INCREASE:
 			function_flow[alg_funID]->addExpression(alg_opID, alg_dependency_stack, expr);
 			alg_dependency_stack.clear();
@@ -282,9 +291,9 @@ namespace SMTPlan {
 		s->getLHS()->visit(this);
 		s->getRHS()->visit(this);
 
-		pexpr lhs = alg_expression_stack.back();
-		alg_expression_stack.pop_back();
 		pexpr rhs = alg_expression_stack.back();
+		alg_expression_stack.pop_back();
+		pexpr lhs = alg_expression_stack.back();
 		alg_expression_stack.pop_back();
 
 		alg_expression_stack.push_back(lhs - rhs);
@@ -307,13 +316,18 @@ namespace SMTPlan {
 
 		s->getLHS()->visit(this);
 		s->getRHS()->visit(this);
+		std::cout << "OKKES" << std::endl;
 
-		pexpr lhs = alg_expression_stack.back();
-		alg_expression_stack.pop_back();
 		pexpr rhs = alg_expression_stack.back();
 		alg_expression_stack.pop_back();
+		pexpr lhs = alg_expression_stack.back();
+		alg_expression_stack.pop_back();
+
+		std::cout << rhs << std::endl;
+		std::cout << lhs << std::endl;
 
 		alg_expression_stack.push_back(lhs / rhs);
+		std::cout << "SAVAS" << std::endl;
 	}
 
 	void Algebraist::visit_uminus_expression(VAL::uminus_expression * s) {

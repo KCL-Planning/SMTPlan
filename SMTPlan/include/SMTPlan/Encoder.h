@@ -57,6 +57,7 @@ namespace SMTPlan
 		EncState enc_state;
 		int enc_expression_h;
 		std::vector<z3::expr> enc_expression_stack;
+		std::set<int> enc_expression_symbols;
 		std::string enc_function_symbol;
 
 		/* encoding information */
@@ -102,6 +103,52 @@ namespace SMTPlan
 			std::vector<Z3_ast> array;
 			for (unsigned i = 0; i < args.size(); i++) array.push_back(args[i]);
 			return z3::to_expr(args.ctx(), Z3_mk_and(args.ctx(), array.size(), &(array[0])));
+		}
+
+		z3::expr mk_expr(pexpr poly, int h) {
+
+			auto it = poly._container().begin();
+			auto end = poly._container().end();
+			auto args = poly.get_symbol_set();
+
+			z3::expr flow = z3_context->real_val(0);
+			for (; it != end;) {
+
+				// rational coefficient of term
+				std::stringstream ss;
+				ss << it->m_cf;
+				z3::expr coeff = z3_context->real_val(ss.str().c_str());
+
+				// symbols
+				for (int i = 0; i < it->m_key.size(); i++) {
+					if (it->m_key[i] != pexpr(0)) {
+						// default symbol: #t
+						z3::expr sym = duration_vars[h-1];
+						if(args[i].get_name() != "hasht") {
+							if(algebraist->function_id_map.find(args[i].get_name()) == algebraist->function_id_map.end()) {
+								// symbol: real value
+								sym = z3_context->real_val(args[i].get_name().c_str());
+							} else {
+								// symbol: function name
+								int fID = algebraist->function_id_map[args[i].get_name()];
+								if(problem_info->staticFunctionMap[algebraist->predicate_head_map[fID]]) {
+									sym = problem_info->staticFunctionValues.find(fID)->second;
+								} else {
+									sym = pos_function_vars[fID][h-1];
+								}
+							}
+						}
+						z3::expr arg = sym;
+						if (it->m_key[i] != pexpr(1))
+							arg = z3::pw(arg, it->m_key[i]);
+						coeff = (coeff * arg);
+					}
+				}
+				++it;
+				flow = (flow + coeff);
+			}
+
+			return flow;
 		}
 
 	public:

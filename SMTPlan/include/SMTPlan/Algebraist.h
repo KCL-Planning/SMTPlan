@@ -37,7 +37,7 @@ namespace SMTPlan
 	{
 		std::set<int> operators;
 		std::set<int> dependencies;
-		pexpr derivative;
+		std::vector<pexpr> derivatives;
 		pexpr polynomial;
 	};
 
