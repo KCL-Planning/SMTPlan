@@ -32,6 +32,7 @@ namespace SMTPlan
 		// iterative deepening
 		int lower_bound;
 		int upper_bound;
+		int cascade_bound;
 		int step_size;
 	};
 

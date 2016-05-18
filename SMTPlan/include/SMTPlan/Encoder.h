@@ -34,7 +34,12 @@ namespace SMTPlan
 		ENC_LITERAL,
 		ENC_ACTION_CONDITION,
 		ENC_ACTION_DURATION,
-		ENC_ACTION_EFFECT
+		ENC_ACTION_EFFECT,
+		ENC_SIMPLE_ACTION_CONDITION,
+		ENC_SIMPLE_ACTION_EFFECT,
+		ENC_EVENT_CONDITION,
+		ENC_EVENT_EFFECT,
+		ENC_PROCESS_CONDITION
 	};
 
 	class Encoder : public VAL::VisitController
@@ -56,15 +61,24 @@ namespace SMTPlan
 		/* encoding state */
 		EncState enc_state;
 		int enc_expression_h;
+		int enc_expression_b;
 		std::vector<z3::expr> enc_expression_stack;
-		std::set<int> enc_expression_symbols;
+
+		std::vector<z3::expr> enc_musts_expression_stack;
+		std::vector<z3::expr> enc_musts_discrete_stack;
+
+		z3::expr_vector* enc_event_condition_stack;
+
 		std::string enc_function_symbol;
 
 		/* encoding information */
+		std::vector<std::vector<int> > simpleEventAddEffects;
+		std::vector<std::vector<int> > simpleEventDelEffects;
 		std::vector<std::vector<int> > simpleStartAddEffects;
 		std::vector<std::vector<int> > simpleStartDelEffects;
 		std::vector<std::vector<int> > simpleEndAddEffects;
 		std::vector<std::vector<int> > simpleEndDelEffects;
+		std::map<int, std::vector<std::pair<int, z3::expr> > > simpleEventAssignEffects;
 		std::map<int, std::vector<std::pair<int, z3::expr> > > simpleStartAssignEffects;
 		std::map<int, std::vector<std::pair<int, z3::expr> > > simpleEndAssignEffects;
 		std::vector<bool> initialState;
@@ -72,14 +86,13 @@ namespace SMTPlan
 		/* SMT variables */
 		std::vector<z3::expr> time_vars;
 		std::vector<z3::expr> duration_vars;
-		std::vector<std::vector<z3::expr> > pre_function_vars;
-		std::vector<std::vector<z3::expr> > pos_function_vars;
-		std::vector<std::vector<z3::expr> > pre_literal_vars;
-		std::vector<std::vector<z3::expr> > pos_literal_vars;
-		std::vector<std::vector<z3::expr> > sta_action_vars;
-		std::vector<std::vector<z3::expr> > end_action_vars;
-		std::vector<std::vector<z3::expr> > dur_action_vars;
-		std::vector<std::vector<z3::expr> > run_action_vars;
+		std::vector<std::vector<std::vector<z3::expr> > > event_cascade_function_vars;
+		std::vector<std::vector<std::vector<z3::expr> > > event_cascade_literal_vars;
+		std::map<int, std::vector<z3::expr> > sta_action_vars;
+		std::map<int, std::vector<z3::expr> > end_action_vars;
+		std::map<int, std::vector<z3::expr> > dur_action_vars;
+		std::map<int, std::vector<z3::expr> > run_action_vars;
+		std::map<int, std::vector<std::vector<z3::expr>>> event_vars;
 
 		/* encoding methods */
 		void encodeHeader(int H);
@@ -105,7 +118,7 @@ namespace SMTPlan
 			return z3::to_expr(args.ctx(), Z3_mk_and(args.ctx(), array.size(), &(array[0])));
 		}
 
-		z3::expr mk_expr(pexpr poly, int h) {
+		z3::expr mk_expr(pexpr poly, int h, int b) {
 
 			auto it = poly._container().begin();
 			auto end = poly._container().end();
@@ -123,7 +136,7 @@ namespace SMTPlan
 				for (int i = 0; i < it->m_key.size(); i++) {
 					if (it->m_key[i] != pexpr(0)) {
 						// default symbol: #t
-						z3::expr sym = duration_vars[h-1];
+						z3::expr sym = duration_vars[h];
 						if(args[i].get_name() != "hasht") {
 							if(algebraist->function_id_map.find(args[i].get_name()) == algebraist->function_id_map.end()) {
 								// symbol: real value
@@ -134,7 +147,7 @@ namespace SMTPlan
 								if(problem_info->staticFunctionMap[algebraist->predicate_head_map[fID]]) {
 									sym = problem_info->staticFunctionValues.find(fID)->second;
 								} else {
-									sym = pos_function_vars[fID][h-1];
+									sym = event_cascade_function_vars[fID][h][b];
 								}
 							}
 						}
@@ -147,7 +160,6 @@ namespace SMTPlan
 				++it;
 				flow = (flow + coeff);
 			}
-
 			return flow;
 		}
 
@@ -157,28 +169,25 @@ namespace SMTPlan
 		{
 			next_layer = 0;
 
+			opt = &options;
 			problem_info = &pi;
 			val_analysis = analysis;
 			algebraist = alg;
 			const int pneCount = Inst::instantiatedOp::howManyPNEs();
 			const int litCount = Inst::instantiatedOp::howManyLiterals();
-			const int actCount = Inst::instantiatedOp::howMany();
 
 			simpleStartAddEffects = std::vector<std::vector<int> >(litCount);
 			simpleStartDelEffects = std::vector<std::vector<int> >(litCount);
+			simpleEventAddEffects = std::vector<std::vector<int> >(litCount);
+			simpleEventDelEffects = std::vector<std::vector<int> >(litCount);
 			simpleEndAddEffects = std::vector<std::vector<int> >(litCount);
 			simpleEndDelEffects = std::vector<std::vector<int> >(litCount);
 
 			initialState = std::vector<bool>(litCount);
 
-			pre_function_vars = std::vector<std::vector<z3::expr> >(pneCount);
-			pos_function_vars = std::vector<std::vector<z3::expr> >(pneCount);
-			pre_literal_vars = std::vector<std::vector<z3::expr> >(litCount);
-			pos_literal_vars = std::vector<std::vector<z3::expr> >(litCount);
-			sta_action_vars = std::vector<std::vector<z3::expr> >(actCount);
-			end_action_vars = std::vector<std::vector<z3::expr> >(actCount);
-			run_action_vars = std::vector<std::vector<z3::expr> >(actCount);
-			dur_action_vars = std::vector<std::vector<z3::expr> >(actCount);
+			// for each [func|lit] : for each happening : for each cascade level
+			event_cascade_function_vars = std::vector<std::vector<std::vector<z3::expr> > >(pneCount);
+			event_cascade_literal_vars = std::vector<std::vector<std::vector<z3::expr> > >(litCount);
 
 			z3::config cfg;
 			cfg.set("auto_config", true);
@@ -189,6 +198,16 @@ namespace SMTPlan
 
 		/* encoding methods */
 		bool encode(int H);
+
+		/*
+		 * add goal expression to the model for printing.
+		 * Usually the goal expression is only passed to the solver for checking.
+		 */
+		void addGoal() {
+			std::vector<z3::expr>::iterator git = goal_expression.begin();
+			for(; git != goal_expression.end(); git++) 
+				z3_solver->add(*git);
+		};
 
 		/* visitor methods */
 		virtual void visit_action(VAL::action * o);

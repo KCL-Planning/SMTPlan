@@ -201,15 +201,22 @@ namespace SMTPlan {
 		}
 	}
 
-	/*-----------*/
-	/* operators */
-	/*-----------*/
+	/*-------------------------*/
+	/* operators and processes */
+	/*-------------------------*/
 
 	/**
 	 * Visit an operator in order to process its continuous effects
 	 */
 	void Algebraist::visit_durative_action(VAL::durative_action * da) {
 		da->effects->visit(this);
+	}
+
+	/**
+	 * Visit a PDDL process in order to process its continuous effects
+	 */
+    void Algebraist::visit_process(VAL::process * p){
+		p->effects->visit(this);
 	}
 
 	/*---------*/
@@ -316,18 +323,13 @@ namespace SMTPlan {
 
 		s->getLHS()->visit(this);
 		s->getRHS()->visit(this);
-		std::cout << "OKKES" << std::endl;
 
 		pexpr rhs = alg_expression_stack.back();
 		alg_expression_stack.pop_back();
 		pexpr lhs = alg_expression_stack.back();
 		alg_expression_stack.pop_back();
 
-		std::cout << rhs << std::endl;
-		std::cout << lhs << std::endl;
-
 		alg_expression_stack.push_back(lhs / rhs);
-		std::cout << "SAVAS" << std::endl;
 	}
 
 	void Algebraist::visit_uminus_expression(VAL::uminus_expression * s) {
@@ -394,7 +396,6 @@ namespace SMTPlan {
 	void Algebraist::visit_timed_initial_literal(VAL::timed_initial_literal * til) {};
 	void Algebraist::visit_preference(VAL::preference *){}
 	void Algebraist::visit_event(VAL::event * e){}
-    void Algebraist::visit_process(VAL::process * p){}
 	void Algebraist::visit_derivation_rule(VAL::derivation_rule * o){}
 
 }; // close namespace
