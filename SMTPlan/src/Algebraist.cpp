@@ -84,6 +84,7 @@ namespace SMTPlan {
 					// the dependent flow's conditions are subsumed by this one's
 					currentFlow.polynomial = currentFlow.polynomial.subs(dep->function_string, fit->polynomial);
 					flows.push_back(currentFlow);
+					dep_op_distinct = false;
 					
 				} else {
 
@@ -106,7 +107,7 @@ namespace SMTPlan {
 					flows.push_back(newFlow);
 
 					// if difference == dep->flows.size() every time, then we can also add a dep==constant entry
-					if(v.size() != 0) dep_op_distinct = false;
+					if(v.size() != fit->operators.size()) dep_op_distinct = false;
 
 				}
 			}
