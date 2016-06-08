@@ -27,11 +27,58 @@
 
 <h3>Results</h3>
 
-| Problem                          | 1     | 2     | 3     | 4     | 5     | 6     | 7     | 8     |
-|----------------------------------|-------|-------|-------|-------|-------|-------|-------|-------|
-| Nonlinear Car                    | 00.06 | 00.05 | 00.04 | 00.04 | 00.03 | 00.03 | 00.03 | 00.03 |
-| Generator linear                 | 00.06 | 00.04 | 00.06 | 00.09 | 00.12 | 00.17 | 00.24 | 00.37 |
-| Generator non-linear (Toricelli) | 00.06 | 00.09 | 00.10 | 00.17 | 00.39 | 01.01 | 02.36 | 05.87 |
+<style type="text/css">
+.tg  {border-collapse:collapse;border-spacing:0;}
+.tg td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;}
+.tg th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;}
+.tg .tg-yw4l{vertical-align:top}
+</style>
+<table class="tg">
+  <tr>
+    <th class="tg-yw4l">Problem</th>
+    <th class="tg-yw4l">1</th>
+    <th class="tg-yw4l">2</th>
+    <th class="tg-yw4l">3</th>
+    <th class="tg-yw4l">4</th>
+    <th class="tg-yw4l">5</th>
+    <th class="tg-yw4l">6</th>
+    <th class="tg-yw4l">7</th>
+    <th class="tg-yw4l">8</th>
+  </tr>
+  <tr>
+    <td class="tg-yw4l">Nonlinear Car</td>
+    <td class="tg-yw4l">00.06</td>
+    <td class="tg-yw4l">00.05</td>
+    <td class="tg-yw4l">00.04</td>
+    <td class="tg-yw4l">00.04</td>
+    <td class="tg-yw4l">00.03</td>
+    <td class="tg-yw4l">00.03</td>
+    <td class="tg-yw4l">00.03</td>
+    <td class="tg-yw4l">00.03</td>
+  </tr>
+  <tr>
+    <td class="tg-yw4l">Generator linear</td>
+    <td class="tg-yw4l">00.06</td>
+    <td class="tg-yw4l">00.04</td>
+    <td class="tg-yw4l">00.06</td>
+    <td class="tg-yw4l">00.09</td>
+    <td class="tg-yw4l">00.12</td>
+    <td class="tg-yw4l">00.17</td>
+    <td class="tg-yw4l">00.24</td>
+    <td class="tg-yw4l">00.37</td>
+  </tr>
+  <tr>
+    <td class="tg-yw4l">Generator non-linear (Toricelli)</td>
+    <td class="tg-yw4l">00.06</td>
+    <td class="tg-yw4l">00.09</td>
+    <td class="tg-yw4l">00.10</td>
+    <td class="tg-yw4l">00.17</td>
+    <td class="tg-yw4l">00.39</td>
+    <td class="tg-yw4l">01.01</td>
+    <td class="tg-yw4l">02.36</td>
+    <td class="tg-yw4l">05.87</td>
+  </tr>
+</table>
 
 <h3>PDDL+ benchmarks</h3>
 
@@ -42,7 +89,7 @@ The generator domain is a PDDL+ benchmark problem that revolves around refueling
 <p><strong>Non-linear Generator</strong></p>
 
 <p>This version of the generator domain uses a simplified non-linear equation to represent the effects of the refuel action. The fuel level in a refueling tank is calculated by:</p>
-<img src="images/dynamics2.png" alt="OK" style="height:90px;"><br>
+<img src="images/dynamics2.png" alt="OK" style="height:45px;"><br>
 <p>where V init is  the initial volume of fuel in the tank and t is the time spent refueling.</p>
 
 <p><strong>Generator (Toricelli)</strong></p>
