@@ -28,15 +28,17 @@
 <h3>PDDL+ benchmarks</h3>
 
 <p><strong>Linear Generator</strong></p>
-The generator domain is a PDDL+ benchmark
-problem that revolves around refueling a diesel-powered
-generator, which has to run for a given duration without
-overflowing or running dry.<br>To test scalability the number
-of tanks is increased while decreasing the initial fuel level.
+
+The generator domain is a PDDL+ benchmark problem that revolves around refueling a diesel-powered generator, which has to run for a given duration without overflowing or running dry.<br>To test scalability the number of tanks is increased while decreasing the initial fuel level.
 
 <p><strong>Non-linear Generator</strong></p>
 
+<p>This version of the generator domain uses a simplified non-linear equation to represent the effects of the refuel action. The fuel level in a refueling tank is calculated by:</p>
+<img src="images/dynamics2.png" alt="OK" style="height:90px;"><br>
+<p>where V init is  the initial volume of fuel in the tank and t is the time spent refueling.</p>
+
 <p><strong>Generator (Toricelli)</strong></p>
+
 <p>This version uses the Torricelli’s Law, and hence the fuel level in a refuelling tank (V<sub>fuel</sub>) is calculated by:</p>
 <img src="images/dynamics.png" alt="OK" style="height:90px;"><br>
 <p>where V init is the initial volume of fuel in the tank, k is the fuel flow constant (which depends on gravity, size of the
@@ -48,11 +50,9 @@ Here is an example of plan found by SMTPlan+ for the Torricelli nonlinear genera
 959.0: refuel_tank1 [10.0]<br>
 959.0: refuel_tank2 [10.0]</p>
 
-<p><strong>Linear Car</strong></p>
+<p><strong>Non-linear Car</strong></p>
 
-The car domain is another PDDL+ benchmark (Fox
-and Long 2006) where a vehicle has to cover a given distance and have a zero velocity at the end, and the actions available are accelerate and decelerate that 
-increments or decrements by 1 the current velocity, respectively.<br>
+The car domain is another PDDL+ benchmark (Fox and Long 2006) where a vehicle has to cover a given distance and have a zero velocity at the end, and the actions available are accelerate and decelerate that increments or decrements by 1 the current acceleration, respectively.<br>
 To test scalability, the bound on maximum acceleration/deceleration is increased.
 
       <footer class="site-footer">
