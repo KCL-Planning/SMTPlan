@@ -111,8 +111,9 @@ Here is an example of plan found by SMTPlan+ for the Torricelli nonlinear genera
 
 <p><strong>Non-linear Car</strong></p>
 
-The car domain is another PDDL+ benchmark (Fox and Long 2006) where a vehicle has to cover a given distance and have a zero velocity at the end, and the actions available are accelerate and decelerate that increments or decrements by 1 the current acceleration, respectively.<br>
-To test scalability, the bound on maximum acceleration/deceleration is increased.
+<p>The car domain is another PDDL+ benchmark (Fox and Long 2006). A vehicle has to cover a given distance and have a zero velocity at the end. The actions available are accelerate and decelerate, incrementing and decrementing the current acceleration by 1, respectively. The drag equation is removed from this problem, as currently z3 is unable to solve problems involving logarithms.</p>
+
+<p>To test scalability, the bound on maximum acceleration/deceleration is increased.</p>
 
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/KCL-Planning/SMTPlan">SMTPlan+</a> is maintained by <a href="https://github.com/KCL-Planning">KCL-Planning</a>.</span>
