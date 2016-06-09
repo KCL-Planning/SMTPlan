@@ -37,6 +37,7 @@ namespace SMTPlan
 		ENC_ACTION_EFFECT,
 		ENC_SIMPLE_ACTION_CONDITION,
 		ENC_SIMPLE_ACTION_EFFECT,
+		ENC_TIL_EFFECT,
 		ENC_EVENT_CONDITION,
 		ENC_EVENT_EFFECT,
 		ENC_PROCESS_CONDITION
@@ -78,21 +79,27 @@ namespace SMTPlan
 		std::vector<std::vector<int> > simpleStartDelEffects;
 		std::vector<std::vector<int> > simpleEndAddEffects;
 		std::vector<std::vector<int> > simpleEndDelEffects;
+		std::vector<std::vector<int> > simpleTILAddEffects;
+		std::vector<std::vector<int> > simpleTILDelEffects;
 		std::map<int, std::vector<std::pair<int, z3::expr> > > simpleEventAssignEffects;
 		std::map<int, std::vector<std::pair<int, z3::expr> > > simpleStartAssignEffects;
 		std::map<int, std::vector<std::pair<int, z3::expr> > > simpleEndAssignEffects;
+		std::map<int, std::vector<std::pair<int, z3::expr> > > simpleTILAssignEffects;
 		std::vector<bool> initialState;
+		std::vector<int> action_ids;
+
 
 		/* SMT variables */
 		std::vector<z3::expr> time_vars;
 		std::vector<z3::expr> duration_vars;
 		std::vector<std::vector<std::vector<z3::expr> > > event_cascade_function_vars;
 		std::vector<std::vector<std::vector<z3::expr> > > event_cascade_literal_vars;
+		std::map<int, std::vector<std::vector<z3::expr>>> event_vars;
 		std::map<int, std::vector<z3::expr> > sta_action_vars;
 		std::map<int, std::vector<z3::expr> > end_action_vars;
 		std::map<int, std::vector<z3::expr> > dur_action_vars;
 		std::map<int, std::vector<z3::expr> > run_action_vars;
-		std::map<int, std::vector<std::vector<z3::expr>>> event_vars;
+		std::map<int, std::vector<z3::expr> > til_vars;
 
 		/* encoding methods */
 		void encodeHeader(int H);
@@ -182,6 +189,8 @@ namespace SMTPlan
 			simpleEventDelEffects = std::vector<std::vector<int> >(litCount);
 			simpleEndAddEffects = std::vector<std::vector<int> >(litCount);
 			simpleEndDelEffects = std::vector<std::vector<int> >(litCount);
+			simpleTILAddEffects = std::vector<std::vector<int> >(litCount);
+			simpleTILDelEffects = std::vector<std::vector<int> >(litCount);
 
 			initialState = std::vector<bool>(litCount);
 
