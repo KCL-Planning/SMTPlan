@@ -73,7 +73,7 @@ namespace SMTPlan {
 			std::vector<SingleFlow>::iterator fit = dep->flows.begin();
 			for(; fit!=dep->flows.end(); fit++) {
 
-				std::vector<int> v;
+				std::vector<int> v(10);
 				std::vector<int>::iterator it = std::set_difference(
 						fit->operators.begin(),fit->operators.end(),
 						currentFlow.operators.begin(), currentFlow.operators.end(), v.begin());
@@ -111,7 +111,7 @@ namespace SMTPlan {
 
 				}
 			}
-			
+		
 			// if all dependency flows were operator distinct, the dependency could be constant
 			if(dep_op_distinct) flows.push_back(currentFlow);
 		}
@@ -183,19 +183,19 @@ namespace SMTPlan {
 
 			allComplete = true;
 			map<int,FunctionFlow*>::iterator fit = function_flow.begin();
+
 			for (; fit != function_flow.end(); ++fit) {
 
 				// check completed
 				if(fit->second->integrated) {
 					continue;
 				}
-			
+
 				// check dependencies
 				if(!fit->second->dependenciesResolved(function_flow)) {
 					allComplete = false;
 					continue;
 				}
-
 				fit->second->createChildren(function_flow);
 				fit->second->integrate();
 			}
