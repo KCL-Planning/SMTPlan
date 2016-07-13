@@ -79,7 +79,6 @@ namespace SMTPlan
 		VAL::analysis * val_analysis;
 
 		/* piranha environment */
-		piranha::environment env;
 		std::string alg_function_symbol;
 		std::vector<pexpr> alg_expression_stack;
 		std::set<int> alg_dependency_stack;
