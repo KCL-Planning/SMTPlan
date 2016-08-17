@@ -24,7 +24,7 @@
 #include "typecheck.h"
 #include "TIM.h"
 
-int number_of_arguments = 7;
+int number_of_arguments = 8;
 SMTPlan::Argument argument[] = {
 	{"-h",	false,	"\tPrint this and exit."},
 	{"-l",	true,	"number\tBegin iterative deepening at an encoding with l happenings (default 1)."},
@@ -33,6 +33,7 @@ SMTPlan::Argument argument[] = {
 	{"-s",	true,	"number\tIteratively deepen with a step size of s (default 1)."},
 	{"-n",	false,	"\tDo not solve. Output encoding in smt2 format and exit."},
 	{"-v",	false,	"\tVerbose times."},
+	{"-d",	false,	"\tDebug output."}
 };
 
 void printUsage(char* arg) {
@@ -56,6 +57,7 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 
 	// defaults
 	options.verbose = false;
+	options.debug = false;
 	options.solve = true;
 	options.lower_bound = 1;
 	options.upper_bound = -1;
@@ -97,6 +99,8 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 				options.solve = false;
 			} else if(argument[j].name == "-v") {
 				options.verbose = true;
+			} else if(argument[j].name == "-d") {
+				options.debug = true;
 			}
 		}
 		if(!argumentFound) {

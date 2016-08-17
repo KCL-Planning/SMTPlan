@@ -52,26 +52,37 @@ namespace SMTPlan {
 				z3::expr v = m.eval(sta_action_vars[*ait][h]);
 				if(eq(v,t))	std::cout << m.eval(time_vars[h]) << ":\t" << sta_action_vars[*ait][h] << " [" << m.eval(dur_action_vars[*ait][h]) << "]" << std::endl;
 			}
-/*
-			std::vector<std::vector<std::vector<z3::expr> > >::iterator fit = event_cascade_function_vars.begin();
-			for(; fit != event_cascade_function_vars.end(); fit++) {
-				for(int b=0; b<opt->cascade_bound; b++) {
-					std::cout << m.eval(time_vars[h]) << ":\t" << (*fit)[h][b] << " == " << m.eval((*fit)[h][b]) << " [0.0]" << std::endl;
+
+			if(opt->debug) {
+				// run
+				ait = action_ids.begin();
+				for(; ait != action_ids.end(); ait++) {
+					z3::expr v = m.eval(run_action_vars[*ait][h]);
+					if(eq(v,t))	std::cout << m.eval(time_vars[h]) << ":\t" << run_action_vars[*ait][h] << "\t(running)" << std::endl;
+				}
+
+				// end
+				ait = action_ids.begin();
+				for(; ait != action_ids.end(); ait++) {
+					z3::expr v = m.eval(end_action_vars[*ait][h]);
+					if(eq(v,t))	std::cout << m.eval(time_vars[h]) << ":\t" << end_action_vars[*ait][h] << "\t(end)" << std::endl;
+				}
+
+				std::vector<std::vector<std::vector<z3::expr> > >::iterator lit = event_cascade_literal_vars.begin();
+				for(; lit != event_cascade_literal_vars.end(); lit++) {
+					for(int b=0; b<opt->cascade_bound; b++) {
+						z3::expr v = m.eval((*lit)[h][b]);
+						if(eq(v,t)) std::cout << m.eval(time_vars[h]) << ":\t" << (*lit)[h][b] << std::endl;
+					}
+				}
+
+				std::vector<std::vector<std::vector<z3::expr> > >::iterator fit = event_cascade_function_vars.begin();
+				for(; fit != event_cascade_function_vars.end(); fit++) {
+					for(int b=0; b<opt->cascade_bound; b++) {
+						std::cout << m.eval(time_vars[h]) << ":\t" << (*fit)[h][b] << " == " << m.eval((*fit)[h][b]) << std::endl;
+					}
 				}
 			}
-
-			ait = run_action_vars.begin();
-			for(; ait != run_action_vars.end(); ait++) {
-				z3::expr v = m.eval(ait->second[h]);
-				if(eq(v,t))	std::cout << m.eval(time_vars[h]) << ":\t" << ait->second[h] << " [" << m.eval(dur_action_vars[ait->first][h]) << "]" << std::endl;
-			}
-
-			ait = end_action_vars.begin();
-			for(; ait != end_action_vars.end(); ait++) {
-				z3::expr v = m.eval(ait->second[h]);
-				if(eq(v,t))	std::cout << m.eval(time_vars[h]) << ":\t" << ait->second[h] << " [" << m.eval(dur_action_vars[ait->first][h]) << "]" << std::endl;
-			}
-*/
 		}
 		std::cout << "Goal at " << "[" << m.eval(time_vars[upper_bound-1]) << "]" << std::endl;
 	}
@@ -770,7 +781,7 @@ namespace SMTPlan {
 			if(h<=0) continue;
 
 			z3::expr_vector addargs(*z3_context);
-			addargs.push_back(event_cascade_literal_vars[enc_litID][h-1][0]);
+			addargs.push_back(event_cascade_literal_vars[enc_litID][h-1][opt->cascade_bound-1]);
 
 			// TIL enablers
 			if(simpleTILAddEffects[enc_litID].size()>0) {
@@ -784,7 +795,7 @@ namespace SMTPlan {
 			z3_solver->add(implies( event_cascade_literal_vars[enc_litID][h][0], mk_or(addargs) ));
 
 			z3::expr_vector delargs(*z3_context);
-			delargs.push_back(!event_cascade_literal_vars[enc_litID][h-1][0]);
+			delargs.push_back(!event_cascade_literal_vars[enc_litID][h-1][opt->cascade_bound-1]);
 
 			// TIL disablers
 			if(simpleTILDelEffects[enc_litID].size()>0) {
