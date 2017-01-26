@@ -54,9 +54,11 @@ namespace SMTPlan {
 			}
 
 			if(opt->debug) {
+
 				// run
 				ait = action_ids.begin();
 				for(; ait != action_ids.end(); ait++) {
+					if(run_action_vars.find(*ait)==run_action_vars.end()) continue;
 					z3::expr v = m.eval(run_action_vars[*ait][h]);
 					if(eq(v,t))	std::cout << m.eval(time_vars[h]) << ":\t" << run_action_vars[*ait][h] << "\t(running)" << std::endl;
 				}
@@ -64,6 +66,7 @@ namespace SMTPlan {
 				// end
 				ait = action_ids.begin();
 				for(; ait != action_ids.end(); ait++) {
+					if(end_action_vars.find(*ait)==end_action_vars.end()) continue;
 					z3::expr v = m.eval(end_action_vars[*ait][h]);
 					if(eq(v,t))	std::cout << m.eval(time_vars[h]) << ":\t" << end_action_vars[*ait][h] << "\t(end)" << std::endl;
 				}
