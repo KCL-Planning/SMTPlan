@@ -120,6 +120,7 @@ namespace SMTPlan {
 	}
 
 	void FunctionFlow::integrate() {
+
 		std::vector<SingleFlow>::iterator fit = flows.begin();
 		for(; fit!=flows.end(); fit++) {
 
@@ -167,6 +168,30 @@ namespace SMTPlan {
 	 * Main processing method
 	 */
 	bool Algebraist::processDomain() {
+
+		alg_state = ALG_COLLECT_STATICS;
+
+		// examine initial state to get constant values of static functions
+		VAL::effect_lists* eff_list = val_analysis->the_problem->initial_state;
+		for (VAL::pc_list<VAL::assignment*>::const_iterator ci = eff_list->assign_effects.begin(); ci != eff_list->assign_effects.end(); ci++) {
+			const VAL::assignment* effect = *ci;
+			Inst::PNE * l = new Inst::PNE(effect->getFTerm(), fe);	
+			Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
+
+			int pneID = lit->getID();
+			std::string function_symbol = l->getHead()->getName();
+
+			effect->getExpr()->visit(this);
+			pexpr expr = alg_expression_stack.back();
+			alg_expression_stack.pop_back();
+
+			if(problem_info->staticFunctionMap[lit->getHead()->getName()]) {
+				problem_info->staticFunctionValuesPiranha.insert(std::make_pair(pneID,expr));
+			}
+			delete l;
+		}
+
+		alg_state = ALG_PROCESS_FUNCTIONS;
 
 		// for each operator, process effects
 		Inst::OpStore::iterator opsItr = Inst::instantiatedOp::opsBegin();
@@ -330,7 +355,7 @@ namespace SMTPlan {
 		pexpr lhs = alg_expression_stack.back();
 		alg_expression_stack.pop_back();
 
-		alg_expression_stack.push_back(lhs / rhs);
+		alg_expression_stack.push_back(lhs / rhs);		
 	}
 
 	void Algebraist::visit_uminus_expression(VAL::uminus_expression * s) {
@@ -344,15 +369,11 @@ namespace SMTPlan {
 	}
 
 	void Algebraist::visit_int_expression(VAL::int_expression * s) {
-		std::stringstream ss;
-		ss << s->double_value();
-		alg_expression_stack.push_back(pexpr{ss.str()});
+		alg_expression_stack.push_back(pexpr{s->double_value()});
 	}
 
 	void Algebraist::visit_float_expression(VAL::float_expression * s) {
-		std::stringstream ss;
-		ss << s->double_value();
-		alg_expression_stack.push_back(pexpr{ss.str()});
+		alg_expression_stack.push_back(pexpr{s->double_value()});
 	}
 
 	void Algebraist::visit_func_term(VAL::func_term * s) {
@@ -367,8 +388,12 @@ namespace SMTPlan {
 
 		checkFunction(lit);
 
-		alg_expression_stack.push_back(function_var[lit->getID()]);
-		alg_dependency_stack.insert(lit->getID());
+		if(problem_info->staticFunctionMap[l->getHead()->getName()]) {
+			alg_expression_stack.push_back(problem_info->staticFunctionValuesPiranha.find(lit->getID())->second);
+		} else {
+			alg_expression_stack.push_back(function_var[lit->getID()]);
+			alg_dependency_stack.insert(lit->getID());
+		}
 
 		delete l;
 	}

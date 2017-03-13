@@ -760,7 +760,7 @@ namespace SMTPlan {
 				if(simpleEventDelEffects[enc_litID].size()>0) {
 					std::vector<int>::const_iterator iterator = simpleEventDelEffects[enc_litID].begin();
 					for (; iterator != simpleEventDelEffects[enc_litID].end(); ++iterator) {
-						addargs.push_back(event_vars[(*iterator)][h][b-1]);
+						delargs.push_back(event_vars[(*iterator)][h][b-1]);
 					}
 				}
 
@@ -1153,7 +1153,6 @@ namespace SMTPlan {
 		switch(enc_state) {
 
 		case ENC_EVENT_EFFECT:
-
 			if(enc_eff_neg) {
 				z3_solver->add(implies(
 						event_vars[enc_opID][enc_expression_h][enc_expression_b],

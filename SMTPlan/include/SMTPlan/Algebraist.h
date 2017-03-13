@@ -72,6 +72,15 @@ namespace SMTPlan
 
 	private:
 
+		enum AlgState
+		{
+			ALG_NONE,
+			ALG_COLLECT_STATICS,
+			ALG_PROCESS_FUNCTIONS
+		};
+
+		AlgState alg_state;
+
 		/* problem info */
 		PlannerOptions * opt;
 		ProblemInfo * problem_info;
