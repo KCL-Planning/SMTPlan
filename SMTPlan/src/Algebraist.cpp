@@ -284,9 +284,7 @@ namespace SMTPlan {
 		if(!alg_is_continuous) return;
 
 		// expression as derivative
-		std::cout << expr << " ";
 		expr = expr * piranha::math::pow(hasht,-1);
-		std::cout << expr << std::endl;
 
 
 		// operator
