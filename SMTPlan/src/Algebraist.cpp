@@ -359,7 +359,7 @@ namespace SMTPlan {
 		pexpr lhs = alg_expression_stack.back();
 		alg_expression_stack.pop_back();
 
-		alg_expression_stack.push_back(lhs / rhs);		
+		alg_expression_stack.push_back(lhs * piranha::math::pow(rhs,-1));		
 	}
 
 	void Algebraist::visit_uminus_expression(VAL::uminus_expression * s) {
