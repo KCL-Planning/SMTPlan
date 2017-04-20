@@ -67,7 +67,8 @@ set(VAL_SOURCES
 set(SMTPLAN_SOURCES
 	src/SMTPlan.cpp
 	src/Algebraist.cpp
-	src/Encoder.cpp)
+	src/EncoderHappening.cpp
+	src/EncoderFluent.cpp)
 
 ## Declare cpp executables
 add_executable(SMTPlan ${SMTPLAN_SOURCES} ${VAL_SOURCES})

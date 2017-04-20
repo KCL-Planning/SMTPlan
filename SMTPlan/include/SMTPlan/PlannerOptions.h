@@ -30,6 +30,9 @@ namespace SMTPlan
 		// solving options
 		bool solve;
 
+		// encoding options
+		int encoder;
+
 		// iterative deepening
 		int lower_bound;
 		int upper_bound;

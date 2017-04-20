@@ -1,28 +1,13 @@
-#include "SMTPlan/Encoder.h"
+#include "SMTPlan/EncoderHappening.h"
 
-/* implementation of SMTPlan::Encoder */
+/* implementation of SMTPlan::EncoderHappening */
 namespace SMTPlan {
 
-	/* encoding state */
-	int enc_litID;
-	int enc_pneID;
-	int enc_opID;
-	int enc_tilID;
-	std::string enc_op_string;
-
-	bool enc_continuous;
-	bool enc_cond_neg;
-	bool enc_eff_neg;
-	bool enc_make_op_vars;
-
-	VAL::time_spec enc_cond_time;
-	VAL::time_spec enc_eff_time;
-	VAL::comparison_op enc_comparison_op;
 
 	/**
 	 * attempt to solve the encoding
 	 */
-	z3::check_result Encoder::solve() {
+	z3::check_result EncoderHappening::solve() {
 		z3::check_result result = z3_solver->check(goal_expression.size(), &(*goal_expression.begin()));
 		return result;
 	}
@@ -30,7 +15,7 @@ namespace SMTPlan {
 	/**
 	 * prints the current model if there is one
 	 */
-	void Encoder::printModel() {
+	void EncoderHappening::printModel() {
 		z3::model m = z3_solver->get_model();
 		z3::expr t = z3_context->bool_val(true);
 		z3::set_param("pp.decimal", true);
@@ -93,7 +78,7 @@ namespace SMTPlan {
 	/**
 	 * Main encode method
 	 */
-	bool Encoder::encode(int H) {
+	bool EncoderHappening::encode(int H) {
 
 		upper_bound = H;
 
@@ -162,7 +147,7 @@ namespace SMTPlan {
 	/* header */
 	/*--------*/
 
-	void Encoder::encodeHeader(int H) {
+	void EncoderHappening::encodeHeader(int H) {
 
 		// timings
 		for(int h=next_layer; h<H; h++) {
@@ -234,7 +219,7 @@ namespace SMTPlan {
 	 * Constraints P3--P4 (A Compilation of the Full PDDL+ Language into SMT)
 	 * encodes the happening time constraints
 	 */	
-	void Encoder::encodeTimings(int H) {
+	void EncoderHappening::encodeTimings(int H) {
 
 		for(int h=next_layer; h<H; h++) {
 			if(h==0) {
@@ -251,7 +236,7 @@ namespace SMTPlan {
 	 * Constraints P1 (A Compilation of the Full PDDL+ Language into SMT)
 	 * encodes the initial state
 	 */
-	void Encoder::encodeInitialState() {
+	void EncoderHappening::encodeInitialState() {
 
 		enc_state = ENC_INIT;
 		VAL::effect_lists* eff_list = val_analysis->the_problem->initial_state;
@@ -326,7 +311,7 @@ namespace SMTPlan {
 	 * Constraints P2 (A Compilation of the Full PDDL+ Language into SMT)
 	 * encodes the goal state
 	 */
-	void Encoder::encodeGoalState(int H) {
+	void EncoderHappening::encodeGoalState(int H) {
 
 		enc_state = ENC_GOAL;
 		enc_expression_b = opt->cascade_bound-1;
@@ -335,7 +320,6 @@ namespace SMTPlan {
 
 		VAL::goal* goal = val_analysis->the_problem->the_goal;
 		goal->visit(this);
-
 		enc_state = ENC_NONE;
 	}
 
@@ -343,7 +327,7 @@ namespace SMTPlan {
 	/* TILS */
 	/*------*/
 
-	void Encoder::visit_timed_initial_literal(VAL::timed_initial_literal * til) {
+	void EncoderHappening::visit_timed_initial_literal(VAL::timed_initial_literal * til) {
 
 		til_vars[enc_tilID];
 
@@ -386,7 +370,7 @@ namespace SMTPlan {
 	 * Constraints H9-H10, H14-15, P7-P8 (A Compilation of the Full PDDL+ Language into SMT)
 	 * encodes durative action constraints
 	 */
-	void Encoder::visit_durative_action(VAL::durative_action * da) {
+	void EncoderHappening::visit_durative_action(VAL::durative_action * da) {
 
 		if(enc_make_op_vars)
 		{
@@ -468,7 +452,7 @@ namespace SMTPlan {
 		}
 	}
 
-	void Encoder::visit_action(VAL::action * o) {
+	void EncoderHappening::visit_action(VAL::action * o) {
 
 		if(enc_make_op_vars)
 		{
@@ -518,7 +502,7 @@ namespace SMTPlan {
 	/* events */
 	/*--------*/
 
-	void Encoder::visit_event(VAL::event * e){
+	void EncoderHappening::visit_event(VAL::event * e){
 
 		if(enc_make_op_vars)
 		{
@@ -599,7 +583,7 @@ namespace SMTPlan {
 	/* processes */
 	/*-----------*/
 
-    void Encoder::visit_process(VAL::process * p){
+    void EncoderHappening::visit_process(VAL::process * p){
 
 		if(enc_make_op_vars)
 		{
@@ -718,7 +702,7 @@ namespace SMTPlan {
 	 * Constraints H1--H4, P5-P6 (A Compilation of the Full PDDL+ Language into SMT)
 	 * Encodes variable support in the form of explanatory frame axioms.
 	 */
-	void Encoder::encodeLiteralVariableSupport(int H) {
+	void EncoderHappening::encodeLiteralVariableSupport(int H) {
 
 		for(int h=next_layer;h<H;h++) {
 
@@ -817,7 +801,7 @@ namespace SMTPlan {
 	 * Constraints H5--H6, P5-P6 (A Compilation of the Full PDDL+ Language into SMT)
 	 * Encodes variable support in the form of explanatory frame axioms.
 	 */
-	void Encoder::encodeFunctionVariableSupport(int H) {
+	void EncoderHappening::encodeFunctionVariableSupport(int H) {
 
 		for(int h=next_layer;h<H;h++) {
 
@@ -855,7 +839,7 @@ namespace SMTPlan {
 
 	/**
 	 */
-	void Encoder::encodeFunctionFlows(int H) {
+	void EncoderHappening::encodeFunctionFlows(int H) {
 
 		FunctionFlow * flow = algebraist->function_flow[enc_pneID];
 
@@ -927,22 +911,22 @@ namespace SMTPlan {
 	/* goals */
 	/*-------*/
 
-	void Encoder::visit_conj_goal(VAL::conj_goal *c){
+	void EncoderHappening::visit_conj_goal(VAL::conj_goal *c){
 		c->getGoals()->visit(this);
 	}
 
-	void Encoder::visit_timed_goal(VAL::timed_goal *c){
+	void EncoderHappening::visit_timed_goal(VAL::timed_goal *c){
 		enc_cond_time = c->getTime();
         c->getGoal()->visit(this);
 	}
 
-	void Encoder::visit_neg_goal(VAL::neg_goal *c) {
+	void EncoderHappening::visit_neg_goal(VAL::neg_goal *c) {
 		enc_cond_neg = !enc_cond_neg;
         c->getGoal()->visit(this);
 		enc_cond_neg = !enc_cond_neg;
 	}
 
-	void Encoder::visit_simple_goal(VAL::simple_goal *c){
+	void EncoderHappening::visit_simple_goal(VAL::simple_goal *c){
 		Inst::Literal * l = new Inst::Literal(c->getProp(), fe);
 		Inst::Literal * const lit = Inst::instantiatedOp::findLiteral(l);
 
@@ -1046,7 +1030,7 @@ namespace SMTPlan {
 		delete l;
 	}
 
-	void Encoder::visit_comparison(VAL::comparison * c) {
+	void EncoderHappening::visit_comparison(VAL::comparison * c) {
 
 		enc_expression_stack.clear();
 
@@ -1116,16 +1100,17 @@ namespace SMTPlan {
 		}
 	}
 
-	void Encoder::visit_qfied_goal(VAL::qfied_goal *){}
-	void Encoder::visit_disj_goal(VAL::disj_goal *){}
-	void Encoder::visit_imply_goal(VAL::imply_goal *){}
+	void EncoderHappening::visit_qfied_goal(VAL::qfied_goal *){}
+	void EncoderHappening::visit_disj_goal(VAL::disj_goal *){}
+	void EncoderHappening::visit_imply_goal(VAL::imply_goal *){}
 
 	/*---------*/
 	/* effects */
 	/*---------*/
 
-	void Encoder::visit_effect_lists(VAL::effect_lists * e) {
+	void EncoderHappening::visit_effect_lists(VAL::effect_lists * e) {
 
+		enc_eff_neg = false;
 		e->add_effects.pc_list<VAL::simple_effect*>::visit(this);
 
 		enc_eff_neg = true;
@@ -1139,12 +1124,12 @@ namespace SMTPlan {
 		e->timed_effects.pc_list<VAL::timed_effect*>::visit(this);
 	}
 
-	void Encoder::visit_timed_effect(VAL::timed_effect * e) {
+	void EncoderHappening::visit_timed_effect(VAL::timed_effect * e) {
 		enc_eff_time = e->ts;
 		e->effs->visit(this);
 	};
 
-	void Encoder::visit_simple_effect(VAL::simple_effect * e) {
+	void EncoderHappening::visit_simple_effect(VAL::simple_effect * e) {
 		Inst::Literal * l = new Inst::Literal(e->prop, fe);
 		Inst::Literal * const lit = Inst::instantiatedOp::findLiteral(l);
 
@@ -1229,7 +1214,7 @@ namespace SMTPlan {
 		delete l;
 	}
 
-	void Encoder::visit_assignment(VAL::assignment * e) {
+	void EncoderHappening::visit_assignment(VAL::assignment * e) {
 
 		Inst::PNE * l = new Inst::PNE(e->getFTerm(), fe);	
 		Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
@@ -1335,18 +1320,18 @@ namespace SMTPlan {
 		delete l;
 	}
 
-	void Encoder::visit_forall_effect(VAL::forall_effect * e) {std::cout << "not implemented forall" << std::endl;};
-	void Encoder::visit_cond_effect(VAL::cond_effect * e) {std::cout << "not implemented cond" << std::endl;};
+	void EncoderHappening::visit_forall_effect(VAL::forall_effect * e) {std::cout << "not implemented forall" << std::endl;};
+	void EncoderHappening::visit_cond_effect(VAL::cond_effect * e) {std::cout << "not implemented cond" << std::endl;};
 
 	/*-------------*/
 	/* expressions */
 	/*-------------*/
 
-	void Encoder::parseExpression(VAL::expression * e) {
+	void EncoderHappening::parseExpression(VAL::expression * e) {
 		e->visit(this);
 	}
 
-	void Encoder::visit_plus_expression(VAL::plus_expression * s) {
+	void EncoderHappening::visit_plus_expression(VAL::plus_expression * s) {
 
 		s->getLHS()->visit(this);
 		s->getRHS()->visit(this);
@@ -1358,7 +1343,7 @@ namespace SMTPlan {
 		enc_expression_stack.push_back(lhs + rhs);
 	}
 
-	void Encoder::visit_minus_expression(VAL::minus_expression * s) {
+	void EncoderHappening::visit_minus_expression(VAL::minus_expression * s) {
 
 		s->getLHS()->visit(this);
 		s->getRHS()->visit(this);
@@ -1370,7 +1355,7 @@ namespace SMTPlan {
 		enc_expression_stack.push_back(lhs - rhs);
 	}
 
-	void Encoder::visit_mul_expression(VAL::mul_expression * s) {
+	void EncoderHappening::visit_mul_expression(VAL::mul_expression * s) {
 
 		s->getLHS()->visit(this);
 		s->getRHS()->visit(this);
@@ -1382,7 +1367,7 @@ namespace SMTPlan {
 		enc_expression_stack.push_back(lhs * rhs);
 	}
 
-	void Encoder::visit_div_expression(VAL::div_expression * s) {
+	void EncoderHappening::visit_div_expression(VAL::div_expression * s) {
 
 		s->getLHS()->visit(this);
 		s->getRHS()->visit(this);
@@ -1394,7 +1379,7 @@ namespace SMTPlan {
 		enc_expression_stack.push_back(lhs / rhs);
 	}
 
-	void Encoder::visit_uminus_expression(VAL::uminus_expression * s) {
+	void EncoderHappening::visit_uminus_expression(VAL::uminus_expression * s) {
 
 		s->getExpr()->visit(this);
 
@@ -1403,7 +1388,7 @@ namespace SMTPlan {
 		enc_expression_stack.push_back(-exp);
 	}
 
-	void Encoder::visit_int_expression(VAL::int_expression * s) {
+	void EncoderHappening::visit_int_expression(VAL::int_expression * s) {
 
 		std::stringstream ss;
 		ss << s->double_value();
@@ -1411,7 +1396,7 @@ namespace SMTPlan {
 		enc_expression_stack.push_back(dv);
 	}
 
-	void Encoder::visit_float_expression(VAL::float_expression * s) {
+	void EncoderHappening::visit_float_expression(VAL::float_expression * s) {
 
 		std::stringstream ss;
 		ss << s->double_value();
@@ -1419,7 +1404,7 @@ namespace SMTPlan {
 		enc_expression_stack.push_back(dv);
 	}
 
-	void Encoder::visit_func_term(VAL::func_term * s) {
+	void EncoderHappening::visit_func_term(VAL::func_term * s) {
 		Inst::PNE * l = new Inst::PNE(s, fe);
 		Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
 		
@@ -1457,7 +1442,7 @@ namespace SMTPlan {
 		delete l;
 	}
 
-	void Encoder::visit_special_val_expr(VAL::special_val_expr * s) {
+	void EncoderHappening::visit_special_val_expr(VAL::special_val_expr * s) {
 
 		switch(s->getKind()) {
 
@@ -1497,7 +1482,7 @@ namespace SMTPlan {
 	/* extra */
 	/*-------*/
 
-	void Encoder::visit_preference(VAL::preference *){}
-	void Encoder::visit_derivation_rule(VAL::derivation_rule * o){}
+	void EncoderHappening::visit_preference(VAL::preference *){}
+	void EncoderHappening::visit_derivation_rule(VAL::derivation_rule * o){}
 
 } // close namespace
