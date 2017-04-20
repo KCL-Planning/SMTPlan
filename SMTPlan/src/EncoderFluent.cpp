@@ -20,17 +20,7 @@ namespace SMTPlan {
 		z3::set_param("pp.decimal", true);
 		//print plan
 		for(int h=0; h<upper_bound; h++) {
-/*
-			std::map<int, std::vector<std::vector<z3::expr>>>::iterator eit = event_vars.begin();
-			for(; eit != event_vars.end(); eit++) {
-				for(int b=0; b<opt->cascade_bound-1; b++) {
-					z3::expr v = m.eval(eit->second[h][b]);
-					if(eq(v,t)) {
-						std::cout << m.eval(time_vars[h]) << ":\t" << eit->second[h][b] << " [0.0]" << std::endl;
-					}
-				}
-			}
-*/
+
 			std::vector<int>::iterator ait = action_ids.begin();
 			for(; ait != action_ids.end(); ait++) {
 				z3::expr v = m.eval(sta_action_vars[*ait][h]);
@@ -80,16 +70,17 @@ namespace SMTPlan {
 	bool EncoderFluent::encode(int H) {
 
 		upper_bound = H;
+		int literal_bound = 2;
 
 		// declare all variables
-		encodeHeader(H);
+		encodeHeader(H, literal_bound);
 
 		// timing constraints
 		encodeTimings(H);
 
 		// known states
 		encodeInitialState();
-		encodeGoalState(H);
+		encodeGoalState(H, literal_bound);
 
 		// action constraints
 		enc_make_op_vars = true;
@@ -125,7 +116,7 @@ namespace SMTPlan {
 			Inst::Literal * const currLit = *litItr;
 			if(problem_info->staticPredicateMap[currLit->getHead()->getName()]) continue;
 		    enc_litID = currLit->getID();
-			encodeLiteralVariableSupport(H);
+			encodeLiteralVariableSupport(H, literal_bound);
 		}
 
 		// function constraints
@@ -146,7 +137,7 @@ namespace SMTPlan {
 	/* header */
 	/*--------*/
 
-	void EncoderFluent::encodeHeader(int H) {
+	void EncoderFluent::encodeHeader(int H, int L) {
 
 		// timings
 		for(int h=next_layer; h<H; h++) {
@@ -175,16 +166,22 @@ namespace SMTPlan {
 				simpleTILDelEffects[currLit->getID()];
 
 				event_cascade_literal_vars[currLit->getID()];
-			}
+				literal_time_vars[currLit->getID()];
 
-			for(int h=next_layer; h<H; h++) {
-				std::vector<z3::expr> literalVars;
-				for(int b=0; b<opt->cascade_bound; b++) {
+				// one SMT var for each fluent*change
+				for(int l=0; l<L; l++) {
+					std::vector<z3::expr> literalVars;
+					std::vector<z3::expr> literalTimeVars;
+					for(int b=0; b<opt->cascade_bound; b++) {
+						std::stringstream ss;
+						ss << (*currLit) << l << "_" << b;
+						literalVars.push_back(z3_context->bool_const(ss.str().c_str()));
+					}
+					event_cascade_literal_vars[currLit->getID()].push_back(literalVars);
 					std::stringstream ss;
-					ss << (*currLit) << h << "_" << b;
-					literalVars.push_back(z3_context->bool_const(ss.str().c_str()));
+					ss << "timeof_" << (*currLit) << l;
+					literal_time_vars[currLit->getID()].push_back(z3_context->real_const(ss.str().c_str()));
 				}
-				event_cascade_literal_vars[currLit->getID()].push_back(literalVars);
 			}
 		}
 
@@ -258,6 +255,7 @@ namespace SMTPlan {
 
 				if(!problem_info->staticPredicateMap[lit->getHead()->getName()]) {
 					z3_solver->add(event_cascade_literal_vars[lit->getID()][0][0]);
+					z3_solver->add(literal_time_vars[lit->getID()][0]==0);
 				}
 
 				initialState[lit->getID()] = true;
@@ -310,7 +308,7 @@ namespace SMTPlan {
 	 * Constraints P2 (A Compilation of the Full PDDL+ Language into SMT)
 	 * encodes the goal state
 	 */
-	void EncoderFluent::encodeGoalState(int H) {
+	void EncoderFluent::encodeGoalState(int H, int L) {
 
 		enc_state = ENC_GOAL;
 		enc_expression_b = opt->cascade_bound-1;
@@ -702,7 +700,7 @@ namespace SMTPlan {
 	 * Constraints H1--H4, P5-P6 (A Compilation of the Full PDDL+ Language into SMT)
 	 * Encodes variable support in the form of explanatory frame axioms.
 	 */
-	void EncoderFluent::encodeLiteralVariableSupport(int H) {
+	void EncoderFluent::encodeLiteralVariableSupport(int H, int L) {
 
 		for(int h=next_layer;h<H;h++) {
 

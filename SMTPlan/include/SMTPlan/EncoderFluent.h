@@ -92,8 +92,11 @@ namespace SMTPlan
 		/* SMT variables */
 		std::vector<z3::expr> time_vars;
 		std::vector<z3::expr> duration_vars;
-		std::vector<std::vector<std::vector<z3::expr> > > event_cascade_function_vars;
+
 		std::vector<std::vector<std::vector<z3::expr> > > event_cascade_literal_vars;
+		std::vector<std::vector<z3::expr> > literal_time_vars;
+
+		std::vector<std::vector<std::vector<z3::expr> > > event_cascade_function_vars;
 		std::map<int, std::vector<std::vector<z3::expr>>> event_vars;
 		std::map<int, std::vector<z3::expr> > sta_action_vars;
 		std::map<int, std::vector<z3::expr> > end_action_vars;
@@ -102,12 +105,12 @@ namespace SMTPlan
 		std::map<int, std::vector<z3::expr> > til_vars;
 
 		/* encoding methods */
-		void encodeHeader(int H);
+		void encodeHeader(int H, int L);
 		void encodeTimings(int H);
-		void encodeLiteralVariableSupport(int H);
+		void encodeLiteralVariableSupport(int H, int L);
 		void encodeFunctionVariableSupport(int H);
 		void encodeFunctionFlows(int H);
-		void encodeGoalState(int H);
+		void encodeGoalState(int H, int L);
 		void encodeInitialState();
 
 		void parseExpression(VAL::expression * e);
@@ -258,9 +261,6 @@ namespace SMTPlan
 		virtual void visit_derivation_rule(VAL::derivation_rule * o);
 
 		/* solving */
-//		z3::context * z3_context;
-//		z3::tactic * z3_tactic;
-//		z3::solver * z3_solver;
 		z3::check_result solve();
 		void printModel();
 	};
