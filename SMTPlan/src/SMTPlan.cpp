@@ -172,25 +172,29 @@ int main (int argc, char *argv[]) {
     Inst::instantiatedOp::filterOps(VAL::theTC);
 
 	// save static predicates
-	VAL::pred_decl_list* predicates = VAL::current_analysis->the_domain->predicates;
-	for (VAL::pred_decl_list::const_iterator ci = predicates->begin(); ci != predicates->end(); ci++) {
-		VAL::holding_pred_symbol * hps = HPS((*ci)->getPred());
-		bool isStatic = true;
-		for(VAL::holding_pred_symbol::PIt i = hps->pBegin();i != hps->pEnd();++i) {
-			TIM::TIMpredSymbol * tps = const_cast<TIM::TIMpredSymbol *>(static_cast<const TIM::TIMpredSymbol*>(*i));
-			if(!tps->isDefinitelyStatic() || !tps->isStatic()) {
-				isStatic = false;
-				break;
+	if(VAL::current_analysis->the_domain->predicates) {
+		VAL::pred_decl_list* predicates = VAL::current_analysis->the_domain->predicates;
+		for (VAL::pred_decl_list::const_iterator ci = predicates->begin(); ci != predicates->end(); ci++) {
+			VAL::holding_pred_symbol * hps = HPS((*ci)->getPred());
+			bool isStatic = true;
+			for(VAL::holding_pred_symbol::PIt i = hps->pBegin();i != hps->pEnd();++i) {
+				TIM::TIMpredSymbol * tps = const_cast<TIM::TIMpredSymbol *>(static_cast<const TIM::TIMpredSymbol*>(*i));
+				if(!tps->isDefinitelyStatic() || !tps->isStatic()) {
+					isStatic = false;
+					break;
+				}
 			}
+			pi.staticPredicateMap[hps->getName()] = isStatic;
 		}
-		pi.staticPredicateMap[hps->getName()] = isStatic;
 	}
 
 	// save static functions
-	VAL::func_decl_list* functions = VAL::current_analysis->the_domain->functions;
-	for (VAL::func_decl_list::const_iterator ci = functions->begin(); ci != functions->end(); ci++) {
-		VAL::extended_func_symbol * efs = static_cast<VAL::extended_func_symbol*>(const_cast<VAL::func_symbol*>((*ci)->getFunction()));
-		pi.staticFunctionMap[efs->getName()] = efs->isStatic();
+	if(VAL::current_analysis->the_domain->functions) {
+		VAL::func_decl_list* functions = VAL::current_analysis->the_domain->functions;
+		for (VAL::func_decl_list::const_iterator ci = functions->begin(); ci != functions->end(); ci++) {
+			VAL::extended_func_symbol * efs = static_cast<VAL::extended_func_symbol*>(const_cast<VAL::func_symbol*>((*ci)->getFunction()));
+			pi.staticFunctionMap[efs->getName()] = efs->isStatic();
+		}
 	}
 
 	if(options.verbose) fprintf(stdout,"Grounded:\t%f seconds\n", getElapsed());

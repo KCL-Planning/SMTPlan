@@ -34,6 +34,8 @@ namespace SMTPlan
 		/* encoding info */
 		int upper_bound;
 		int next_layer;
+		int literal_bound;
+		int next_literal_layer;
 		std::vector<z3::expr> goal_expression;
 
 		/* problem info */
@@ -63,6 +65,7 @@ namespace SMTPlan
 		EncState enc_state;
 		int enc_expression_h;
 		int enc_expression_b;
+		int enc_expression_l;
 		std::vector<z3::expr> enc_expression_stack;
 
 		std::vector<z3::expr> enc_musts_expression_stack;
