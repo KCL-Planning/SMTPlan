@@ -206,6 +206,7 @@ namespace SMTPlan
 			// for each [func|lit] : for each happening : for each cascade level
 			event_cascade_function_vars = std::vector<std::vector<std::vector<z3::expr> > >(pneCount);
 			event_cascade_literal_vars = std::vector<std::vector<std::vector<z3::expr> > >(litCount);
+			literal_time_vars = std::vector<std::vector<z3::expr> >(litCount);
 
 			z3::config cfg;
 			cfg.set("auto_config", true);

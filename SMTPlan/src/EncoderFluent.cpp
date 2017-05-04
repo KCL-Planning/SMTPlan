@@ -80,6 +80,7 @@ namespace SMTPlan {
 
 		// known states
 		encodeInitialState();
+
 		encodeGoalState(H, literal_bound);
 
 		// action constraints
@@ -171,14 +172,15 @@ namespace SMTPlan {
 
 				// one SMT var for each fluent*change
 				for(int l=0; l<L; l++) {
+
 					std::vector<z3::expr> literalVars;
-					std::vector<z3::expr> literalTimeVars;
 					for(int b=0; b<opt->cascade_bound; b++) {
 						std::stringstream ss;
 						ss << (*currLit) << l << "_" << b;
 						literalVars.push_back(z3_context->bool_const(ss.str().c_str()));
 					}
 					event_cascade_literal_vars[currLit->getID()].push_back(literalVars);
+
 					std::stringstream ss;
 					ss << "timeof_" << (*currLit) << l;
 					literal_time_vars[currLit->getID()].push_back(z3_context->real_const(ss.str().c_str()));
@@ -985,20 +987,25 @@ namespace SMTPlan {
 
 		if(!lit) return;
 
+		z3::expr pos_ife = z3_context->bool_val(false);
+		z3::expr neg_ife = z3_context->bool_val(false);
+
 		switch(enc_state) {
 
 		case ENC_GOAL:
 			if(enc_cond_neg) {
 				z3::expr goal_ife = z3_context->bool_val(false);
 				for(int l=0;l<literal_bound;l++) {
-					Z3_mk_ite(*z3_context, literal_time_vars[enc_litID][l]==time_vars[upper_bound-1], !event_cascade_literal_vars[lit->getID()][l][opt->cascade_bound-1], goal_ife);
+					goal_ife = Z3_mk_ite(*z3_context, literal_time_vars[enc_litID][l]==time_vars[upper_bound-1], !event_cascade_literal_vars[lit->getID()][l][opt->cascade_bound-1], goal_ife);
 				}
 				goal_expression.push_back(goal_ife);
 			} else {
 				z3::expr goal_ife = z3_context->bool_val(false);
 				for(int l=0;l<literal_bound;l++) {
-					Z3_mk_ite(*z3_context, literal_time_vars[enc_litID][l]==time_vars[upper_bound-1], event_cascade_literal_vars[lit->getID()][l][opt->cascade_bound-1], goal_ife);
+					goal_ife = Z3_mk_ite(*z3_context, literal_time_vars[enc_litID][l]==time_vars[upper_bound-1], event_cascade_literal_vars[lit->getID()][l][opt->cascade_bound-1], goal_ife);
+					std::cout << "HERE" << goal_ife << std::endl;
 				}
+				std::cout << goal_ife << std::endl;
 				goal_expression.push_back(goal_ife);
 			}
 			break;
@@ -1011,8 +1018,6 @@ namespace SMTPlan {
 				break;
 			}
 
-			z3::expr pos_ife = z3_context->bool_val(false);
-			z3::expr neg_ife = z3_context->bool_val(false);
 			for(int l=0;l<literal_bound;l++) {
 				Z3_mk_ite(*z3_context, literal_time_vars[enc_litID][l]==time_vars[enc_expression_h], event_cascade_literal_vars[lit->getID()][l][enc_expression_b], pos_ife);
 				Z3_mk_ite(*z3_context, literal_time_vars[enc_litID][l]==time_vars[enc_expression_h], !event_cascade_literal_vars[lit->getID()][l][enc_expression_b], neg_ife);
