@@ -170,6 +170,7 @@ namespace SMTPlan {
 	bool Algebraist::processDomain() {
 
 		alg_state = ALG_COLLECT_STATICS;
+		// std::cout << "STATICS" << std::endl;
 
 		// examine initial state to get constant values of static functions
 		VAL::effect_lists* eff_list = val_analysis->the_problem->initial_state;
@@ -192,6 +193,7 @@ namespace SMTPlan {
 		}
 
 		alg_state = ALG_PROCESS_FUNCTIONS;
+		// std::cout << "FUNCTIONS" << std::endl;
 
 		// for each operator, process effects
 		Inst::OpStore::iterator opsItr = Inst::instantiatedOp::opsBegin();
@@ -215,6 +217,8 @@ namespace SMTPlan {
 				if(fit->second->integrated) {
 					continue;
 				}
+
+				// std::cout << fit->first << std::endl;
 
 				// check dependencies
 				if(!fit->second->dependenciesResolved(function_flow)) {

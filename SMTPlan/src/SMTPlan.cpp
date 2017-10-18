@@ -252,7 +252,7 @@ int main (int argc, char *argv[]) {
 	fprintf(stdout, "No plan found in %i happenings\n", options.upper_bound);
 	if(options.verbose) fprintf(stdout, "Total time:\t%f seconds\n", getTotalElapsed());
 
-	delete encoder;
+	//delete *encoder;
 
 	return 0;
 }
