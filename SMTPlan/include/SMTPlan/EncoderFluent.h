@@ -189,8 +189,8 @@ namespace SMTPlan
 
 			enc_continuous = enc_cond_neg = enc_eff_neg = false;
 
-			const int pneCount = Inst::instantiatedOp::howManyPNEs();
-			const int litCount = Inst::instantiatedOp::howManyLiterals();
+			const int pneCount = Inst::instantiatedOp::howManyPNEsOfAnySort();
+			const int litCount = Inst::instantiatedOp::howManyLiteralsOfAnySort();
 
 			simpleStartAddEffects = std::vector<std::vector<int> >(litCount);
 			simpleStartDelEffects = std::vector<std::vector<int> >(litCount);

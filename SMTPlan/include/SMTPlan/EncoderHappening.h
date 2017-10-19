@@ -71,6 +71,7 @@ namespace SMTPlan
 		z3::expr_vector* enc_event_condition_stack;
 
 		std::string enc_function_symbol;
+		std::string enc_control_symbol;
 
 		/* encoding information */
 		std::vector<std::vector<int> > simpleEventAddEffects;
@@ -100,6 +101,9 @@ namespace SMTPlan
 		std::map<int, std::vector<z3::expr> > dur_action_vars;
 		std::map<int, std::vector<z3::expr> > run_action_vars;
 		std::map<int, std::vector<z3::expr> > til_vars;
+
+		std::map<int, std::string> action_control_map;
+		std::map<std::string, std::vector<z3::expr> > action_control_vars;
 
 		/* encoding methods */
 		void encodeHeader(int H);
@@ -183,8 +187,8 @@ namespace SMTPlan
 
 			enc_continuous = enc_cond_neg = enc_eff_neg = false;
 
-			const int pneCount = Inst::instantiatedOp::howManyPNEs();
-			const int litCount = Inst::instantiatedOp::howManyLiterals();
+			const int pneCount = Inst::instantiatedOp::howManyPNEsOfAnySort();
+			const int litCount = Inst::instantiatedOp::howManyLiteralsOfAnySort();
 
 			simpleStartAddEffects = std::vector<std::vector<int> >(litCount);
 			simpleStartDelEffects = std::vector<std::vector<int> >(litCount);
@@ -256,6 +260,7 @@ namespace SMTPlan
 		virtual void visit_event(VAL::event * e);
 		virtual void visit_process(VAL::process * p);
 		virtual void visit_derivation_rule(VAL::derivation_rule * o);
+		virtual void visit_control_symbol(VAL::control_symbol * s);
 
 		/* solving */
 //		z3::context * z3_context;

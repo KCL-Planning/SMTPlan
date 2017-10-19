@@ -179,7 +179,7 @@ namespace SMTPlan {
 			Inst::PNE * l = new Inst::PNE(effect->getFTerm(), fe);	
 			Inst::PNE * const lit = Inst::instantiatedOp::findPNE(l);
 
-			int pneID = lit->getID();
+			int pneID = lit->getGlobalID();
 			std::string function_symbol = l->getHead()->getName();
 
 			effect->getExpr()->visit(this);
@@ -273,7 +273,7 @@ namespace SMTPlan {
 
 		if (!lit) return;
 
-		alg_funID = lit->getID();
+		alg_funID = lit->getGlobalID();
 
 		// create flow structure
 		checkFunction(lit);
@@ -395,10 +395,10 @@ namespace SMTPlan {
 		checkFunction(lit);
 
 		if(problem_info->staticFunctionMap[l->getHead()->getName()]) {
-			alg_expression_stack.push_back(problem_info->staticFunctionValuesPiranha.find(lit->getID())->second);
+			alg_expression_stack.push_back(problem_info->staticFunctionValuesPiranha.find(lit->getGlobalID())->second);
 		} else {
-			alg_expression_stack.push_back(function_var[lit->getID()]);
-			alg_dependency_stack.insert(lit->getID());
+			alg_expression_stack.push_back(function_var[lit->getGlobalID()]);
+			alg_dependency_stack.insert(lit->getGlobalID());
 		}
 
 		delete l;
@@ -429,5 +429,9 @@ namespace SMTPlan {
 	void Algebraist::visit_preference(VAL::preference *){}
 	void Algebraist::visit_event(VAL::event * e){}
 	void Algebraist::visit_derivation_rule(VAL::derivation_rule * o){}
+	
+	void Algebraist::visit_control_symbol(VAL::control_symbol * s) {
+		alg_expression_stack.push_back(pexpr{0});
+	};
 
 }; // close namespace

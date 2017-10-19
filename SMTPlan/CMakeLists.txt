@@ -42,8 +42,7 @@ find_package(Boost REQUIRED thread)
 ## include directories
 include_directories (include)
 include_directories (src/VALfiles)
-include_directories (src/VALfiles/src)
-include_directories (src/VALfiles/include)
+include_directories (src/VALfiles/parsing)
 include_directories(${PYTHON_INCLUDE_DIRS})
 include_directories(${SYMENGINE_INCLUDE_DIRS})
 include_directories(${GMP_INCLUDE_DIR})
@@ -51,17 +50,17 @@ include_directories(${MPFR_INCLUDE_DIR})
 
 ## val sources
 set(VAL_SOURCES
-	src/VALfiles/src/DebugWriteController.cpp
-	src/VALfiles/src/FastEnvironment.cpp
-	src/VALfiles/src/FuncAnalysis.cpp
-	src/VALfiles/src/SimpleEval.cpp
-	src/VALfiles/src/TIM.cpp
-	src/VALfiles/src/TimSupport.cpp
-	src/VALfiles/src/TypedAnalyser.cpp
-	src/VALfiles/src/instantiation.cpp
-	src/VALfiles/src/pddl+.cpp
-	src/VALfiles/src/ptree.cpp
-	src/VALfiles/src/typecheck.cpp)
+	src/VALfiles/parsing/DebugWriteController.cpp
+	src/VALfiles/FastEnvironment.cpp
+	src/VALfiles/FuncAnalysis.cpp
+	src/VALfiles/SimpleEval.cpp
+	src/VALfiles/TIM.cpp
+	src/VALfiles/TimSupport.cpp
+	src/VALfiles/TypedAnalyser.cpp
+	src/VALfiles/instantiation.cpp
+	src/VALfiles/parsing/pddl+.cpp
+	src/VALfiles/parsing/ptree.cpp
+	src/VALfiles/typecheck.cpp)
 
 ## SMTPLAN sources
 set(SMTPLAN_SOURCES

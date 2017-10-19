@@ -98,27 +98,27 @@ namespace SMTPlan
 		/* utility method */
 		void checkFunction(Inst::PNE * const lit) {
 
-			map<int,pexpr>::iterator fit = function_var.find(lit->getID());
+			map<int,pexpr>::iterator fit = function_var.find(lit->getGlobalID());
 			if(fit != function_var.end()) return;
 
 
 			std::stringstream ss;
 			ss << (*lit);
 			pexpr fv = pexpr{ss.str()};			
-			function_var[lit->getID()] = fv;
-			function_id_map[ss.str()] = lit->getID();
-			predicate_head_map[lit->getID()] = lit->getHead()->getName();
+			function_var[lit->getGlobalID()] = fv;
+			function_id_map[ss.str()] = lit->getGlobalID();
+			predicate_head_map[lit->getGlobalID()] = lit->getHead()->getName();
 
-			map<int,FunctionFlow*>::iterator it = function_flow.find(lit->getID());
+			map<int,FunctionFlow*>::iterator it = function_flow.find(lit->getGlobalID());
 			if(it == function_flow.end()) {
 				FunctionFlow* ff = new FunctionFlow();
 
-				ff->function_var = function_var[lit->getID()];
+				ff->function_var = function_var[lit->getGlobalID()];
 				ff->function_string = ss.str();
-				ff->f_id = lit->getID();
+				ff->f_id = lit->getGlobalID();
 				ff->integrated = false;
 
-				function_flow[lit->getID()] = ff;
+				function_flow[lit->getGlobalID()] = ff;
 			}
 		};
 
@@ -163,6 +163,7 @@ namespace SMTPlan
 		virtual void visit_event(VAL::event * e);
 		virtual void visit_process(VAL::process * p);
 		virtual void visit_derivation_rule(VAL::derivation_rule * o);
+		virtual void visit_control_symbol(VAL::control_symbol * s);
 	};
 
 } // close namespace
