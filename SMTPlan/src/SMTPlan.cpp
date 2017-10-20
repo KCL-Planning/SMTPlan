@@ -32,7 +32,7 @@ SMTPlan::Argument argument[] = {
 	{"-l",	true,	"number\tBegin iterative deepening at an encoding with l happenings (default 1)."},
 	{"-u",	true,	"number\tRun iterative deepening until the u is reached. Set -1 for unlimited (default -1)."},
 	{"-c",	true,	"number\tLimit the length of the concurrent cascading event and action chain (default 2, minimum 2)."},
-	{"-e",	true,	"number\tChoose which encoding to use:\n\t\t\t0\tHappening-based encoding described in the paper (default)\n\t\t\t1\tFluent-change-based encoding."},
+	{"-e",	true,	"number\tChoose which encoding to use:\n\t\t\t0\tHappening-based encoding described in the paper (default)"},
 	{"-s",	true,	"number\tIteratively deepen with a step size of s (default 1)."},
 	{"-n",	false,	"\tDo not solve. Output encoding in smt2 format and exit."},
 	{"-v",	false,	"\tVerbose times."},
