@@ -944,7 +944,10 @@ namespace SMTPlan {
 		Inst::Literal * l = new Inst::Literal(c->getProp(), fe);
 		Inst::Literal * const lit = Inst::instantiatedOp::findLiteral(l);
 
-		if(!lit) return;
+		if(!lit) {
+			if(enc_state == ENC_GOAL) goal_expression.push_back(z3_context->bool_val(false));
+			return;
+		}
 
 		switch(enc_state) {
 
