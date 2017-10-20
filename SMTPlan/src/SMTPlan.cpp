@@ -5,6 +5,8 @@
 #include "SMTPlan/PlannerOptions.h"
 #include "SMTPlan/ProblemInfo.h"
 #include "SMTPlan/Encoder.h"
+#include "SMTPlan/EncoderHappening.h"
+#include "SMTPlan/EncoderFluent.h"
 #include "SMTPlan/Algebraist.h"
 
 #include <ctime>
@@ -24,12 +26,13 @@
 #include "typecheck.h"
 #include "TIM.h"
 
-int number_of_arguments = 8;
+int number_of_arguments = 9;
 SMTPlan::Argument argument[] = {
 	{"-h",	false,	"\tPrint this and exit."},
 	{"-l",	true,	"number\tBegin iterative deepening at an encoding with l happenings (default 1)."},
 	{"-u",	true,	"number\tRun iterative deepening until the u is reached. Set -1 for unlimited (default -1)."},
 	{"-c",	true,	"number\tLimit the length of the concurrent cascading event and action chain (default 2, minimum 2)."},
+	{"-e",	true,	"number\tChoose which encoding to use:\n\t\t\t0\tHappening-based encoding described in the paper (default)"},
 	{"-s",	true,	"number\tIteratively deepen with a step size of s (default 1)."},
 	{"-n",	false,	"\tDo not solve. Output encoding in smt2 format and exit."},
 	{"-v",	false,	"\tVerbose times."},
@@ -63,6 +66,7 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 	options.upper_bound = -1;
 	options.cascade_bound = 2;
 	options.step_size = 1;
+	options.encoder = 0;
 
 	// read arguments
 	for(int i=3;i<argc; i++) {
@@ -101,6 +105,8 @@ bool parseArguments(int argc, char *argv[], SMTPlan::PlannerOptions &options) {
 				options.verbose = true;
 			} else if(argument[j].name == "-d") {
 				options.debug = true;
+			} else if(argument[j].name == "-e") {
+				options.encoder = atoi(argv[i]);
 			}
 		}
 		if(!argumentFound) {
@@ -166,25 +172,29 @@ int main (int argc, char *argv[]) {
     Inst::instantiatedOp::filterOps(VAL::theTC);
 
 	// save static predicates
-	VAL::pred_decl_list* predicates = VAL::current_analysis->the_domain->predicates;
-	for (VAL::pred_decl_list::const_iterator ci = predicates->begin(); ci != predicates->end(); ci++) {
-		VAL::holding_pred_symbol * hps = HPS((*ci)->getPred());
-		bool isStatic = true;
-		for(VAL::holding_pred_symbol::PIt i = hps->pBegin();i != hps->pEnd();++i) {
-			TIM::TIMpredSymbol * tps = const_cast<TIM::TIMpredSymbol *>(static_cast<const TIM::TIMpredSymbol*>(*i));
-			if(!tps->isDefinitelyStatic() || !tps->isStatic()) {
-				isStatic = false;
-				break;
+	if(VAL::current_analysis->the_domain->predicates) {
+		VAL::pred_decl_list* predicates = VAL::current_analysis->the_domain->predicates;
+		for (VAL::pred_decl_list::const_iterator ci = predicates->begin(); ci != predicates->end(); ci++) {
+			VAL::holding_pred_symbol * hps = HPS((*ci)->getPred());
+			bool isStatic = true;
+			for(VAL::holding_pred_symbol::PIt i = hps->pBegin();i != hps->pEnd();++i) {
+				TIM::TIMpredSymbol * tps = const_cast<TIM::TIMpredSymbol *>(static_cast<const TIM::TIMpredSymbol*>(*i));
+				if(!tps->isDefinitelyStatic() || !tps->isStatic()) {
+					isStatic = false;
+					break;
+				}
 			}
+			pi.staticPredicateMap[hps->getName()] = isStatic;
 		}
-		pi.staticPredicateMap[hps->getName()] = isStatic;
 	}
 
 	// save static functions
-	VAL::func_decl_list* functions = VAL::current_analysis->the_domain->functions;
-	for (VAL::func_decl_list::const_iterator ci = functions->begin(); ci != functions->end(); ci++) {
-		VAL::extended_func_symbol * efs = static_cast<VAL::extended_func_symbol*>(const_cast<VAL::func_symbol*>((*ci)->getFunction()));
-		pi.staticFunctionMap[efs->getName()] = efs->isStatic();
+	if(VAL::current_analysis->the_domain->functions) {
+		VAL::func_decl_list* functions = VAL::current_analysis->the_domain->functions;
+		for (VAL::func_decl_list::const_iterator ci = functions->begin(); ci != functions->end(); ci++) {
+			VAL::extended_func_symbol * efs = static_cast<VAL::extended_func_symbol*>(const_cast<VAL::func_symbol*>((*ci)->getFunction()));
+			pi.staticFunctionMap[efs->getName()] = efs->isStatic();
+		}
 	}
 
 	if(options.verbose) fprintf(stdout,"Grounded:\t%f seconds\n", getElapsed());
@@ -196,32 +206,42 @@ int main (int argc, char *argv[]) {
 	if(options.verbose) fprintf(stdout,"Algebra:\t%f seconds\n", getElapsed());
 
 	// begin search loop
-	SMTPlan::Encoder encoder(&algebraist, VAL::current_analysis, options, pi);
+	SMTPlan::Encoder* encoder;
+	if(options.encoder == 0) {
+		encoder = new SMTPlan::EncoderHappening(&algebraist, VAL::current_analysis, options, pi);
+	} else if(options.encoder == 1) {
+		encoder = new SMTPlan::EncoderFluent(&algebraist, VAL::current_analysis, options, pi);
+	} else {
+		fprintf(stdout,"Uknown encoding selected.\n");
+		return 0;
+	}
+
 	for(int i=options.lower_bound; (options.upper_bound<0 || i<=options.upper_bound); i+=options.step_size) {
 
 		// generate encoding
-		encoder.encode(i);
+		encoder->encode(i);
 		if(options.verbose) fprintf(stdout,"Encoded %i:\t%f seconds\n", i, getElapsed());
 
 		// output to file
 		std::ofstream pFile;
 		if(!options.solve) {
 			// add the goal to the model
-			encoder.addGoal();
+			encoder->addGoal();
 			// print model
-			std::cout << encoder.z3_solver->to_smt2() << std::endl;
+			std::cout << encoder->z3_solver->to_smt2() << std::endl;
 			return 0;
 		}
 
 		// solve
-		z3::check_result result = encoder.solve();
+		z3::check_result result = encoder->solve();
 
 		if(result == z3::sat) {
-			encoder.printModel();
+			encoder->printModel();
 			if(options.verbose) {
 				fprintf(stdout,"Solved %i:\t%f seconds\n", i, getElapsed());
 				fprintf(stdout,"Total time:\t%f seconds\n", getTotalElapsed());
 			}
+			delete encoder;
 			return 0;
 		}
 
@@ -231,6 +251,8 @@ int main (int argc, char *argv[]) {
 
 	fprintf(stdout, "No plan found in %i happenings\n", options.upper_bound);
 	if(options.verbose) fprintf(stdout, "Total time:\t%f seconds\n", getTotalElapsed());
+
+	//delete *encoder;
 
 	return 0;
 }
