@@ -1541,7 +1541,6 @@ namespace SMTPlan {
 				if(next_layer>0) {
 					for(int h=next_layer-1; h<upper_bound-1; h++) {
 						z3::expr eq = (action_control_vars[ss1.str()][h] == action_control_vars[ss1.str()][h+1]);
-						//z3_solver->add( implies(sta_action_vars[enc_opID][h], eq));
 						z3_solver->add( implies(run_action_vars[enc_opID][h], eq));
 					}
 				}
