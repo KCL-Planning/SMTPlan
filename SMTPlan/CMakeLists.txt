@@ -73,6 +73,8 @@ set(SMTPLAN_SOURCES
 ## Declare cpp executables
 add_executable(SMTPlan ${SMTPLAN_SOURCES} ${VAL_SOURCES})
 target_link_libraries(SMTPlan ${Boost_LIBRARIES} z3 ${Boost_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES})
+## Uncomment to solve undefined reference to symbol 'pthread'
+## target_link_libraries(SMTPlan ${Boost_LIBRARIES} pthread)
 
 #add_executable(test_python src/test_python.cpp)
 #target_link_libraries(test_python ${Boost_LIBRARIES} ${GMP_LIBRARIES} ${MPFR_LIBRARIES})
