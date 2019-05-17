@@ -105,8 +105,8 @@ int main(int argc,char * argv[])
 	    yyparse();
 
 	    // Output syntax tree
-	    auto_ptr<WriteController> ts 
-	    		= auto_ptr<WriteController>(new TypeStripWriteController(current_analysis));
+	    unique_ptr<WriteController> ts 
+	    		= unique_ptr<WriteController>(new TypeStripWriteController(current_analysis));
 	    parse_category::setWriteController(ts);
 	    if (top_thing) 
 		{

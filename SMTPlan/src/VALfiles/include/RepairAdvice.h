@@ -52,7 +52,7 @@
 #include <memory>
 
 
-using std::auto_ptr;
+using std::unique_ptr;
 
 namespace VAL {
   
@@ -198,19 +198,19 @@ virtual MutexViolation *
 
 class ErrorLog {
 private:
-  static auto_ptr<UnsatConditionFactory> fac;
+  static unique_ptr<UnsatConditionFactory> fac;
   
   vector<const UnsatCondition *> conditions; 
 public:
   template<typename Fac>
   static void replace() { 
-  	auto_ptr<Fac> f(new Fac);
+  	unique_ptr<Fac> f(new Fac);
   	fac = f;
   };
   template<typename Fac>
   static void replace(Fac * f)
   {
-  	auto_ptr<Fac> nf(f);
+  	unique_ptr<Fac> nf(f);
   	fac = nf;
   };
   ErrorLog() {};

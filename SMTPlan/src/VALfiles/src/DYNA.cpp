@@ -107,8 +107,8 @@ int main(int argc,char * argv[])
 
 	    // Output syntax tree
 	    dyna = new DYNATranslator(current_analysis);
-	    auto_ptr<WriteController> ts 
-	    		= auto_ptr<WriteController>(dyna);
+	    unique_ptr<WriteController> ts 
+	    		= unique_ptr<WriteController>(dyna);
 	    // NOTE: We pass responsibility for dyna into parse_category. There
 	    // is no need to garbage collect it. BUT we access dyna later through
 	    // this pointer, so beware!

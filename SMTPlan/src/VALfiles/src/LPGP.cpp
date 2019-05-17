@@ -107,8 +107,8 @@ int main(int argc,char * argv[])
 
 	    // Output syntax tree
 	    lpgp = new LPGPTranslator(current_analysis);
-	    auto_ptr<WriteController> ts 
-	    		= auto_ptr<WriteController>(lpgp);
+	    unique_ptr<WriteController> ts 
+	    		= unique_ptr<WriteController>(lpgp);
 	    // NOTE: We pass responsibility for lpgp into parse_category. There
 	    // is no need to garbage collect it. BUT we access lpgp later through
 	    // this pointer, so beware!
