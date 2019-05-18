@@ -3005,8 +3005,8 @@ void QfiedGoal::write(ostream & o) const
 	for(var_symbol_list::const_iterator i = qf->getVars()->begin();i != qf->getVars()->end();++i)
 	{
 	*/
-	auto_ptr<WriteController> w(parse_category::recoverWriteController());
-	auto_ptr<WriteController> p(new PrettyPrinter());
+	unique_ptr<WriteController> w(parse_category::recoverWriteController());
+	unique_ptr<WriteController> p(new PrettyPrinter());
 	parse_category::setWriteController(p);
   o<< *qg << "\n";
   	parse_category::setWriteController(w);

@@ -141,7 +141,7 @@ vector<double> extended_pred_symbol::getTimedAchievers(Environment * f,const pro
 PropInfoFactory * PropInfoFactory::pf = 0;
 
 
-auto_ptr<EPSBuilder> Associater::buildEPS(new EPSBuilder());
+unique_ptr<EPSBuilder> Associater::buildEPS(new EPSBuilder());
 
 // Associater associates predicates with their various type-specific versions.
 // So, if a predicate is overloaded to work with multiple types this will store

@@ -789,7 +789,7 @@ struct specEPSBuilder : public EPSBuilder {
 
 class Associater {
 public:
-	static auto_ptr<EPSBuilder> buildEPS;
+	static unique_ptr<EPSBuilder> buildEPS;
 	virtual ~Associater() {};
 	virtual Associater * lookup(pddl_type * p)
 	{

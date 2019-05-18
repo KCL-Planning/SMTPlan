@@ -69,7 +69,7 @@ using std::list;
 using std::map;
 using std::cout;
 using std::string;
-using std::auto_ptr;
+using std::unique_ptr;
 using std::ostream;
 
 namespace VAL {
@@ -223,14 +223,14 @@ extern analysis* current_analysis;
 class parse_category
 {
 protected:
-	static auto_ptr<WriteController> wcntr;
+	static unique_ptr<WriteController> wcntr;
 public:
     parse_category() {};
     virtual ~parse_category() {};
     virtual void display(int ind) const;
     virtual void write(ostream & o) const {};
     virtual void visit(VisitController * v) const {};
-    static void setWriteController(auto_ptr<WriteController> w);
+    static void setWriteController(unique_ptr<WriteController> w);
     static WriteController * recoverWriteController();
 };
 
@@ -308,7 +308,7 @@ class symbol_table : public map<string,symbol_class*>
 {
 private:
 	typedef map<string,symbol_class*> _Base;
-	auto_ptr<SymbolFactory<symbol_class> > factory;
+	unique_ptr<SymbolFactory<symbol_class> > factory;
 
 public :
 
@@ -316,15 +316,15 @@ public :
 
 	void setFactory(SymbolFactory<symbol_class> * sf)
 	{
-		auto_ptr<SymbolFactory<symbol_class> > x(sf);
-		factory = x;
+		unique_ptr<SymbolFactory<symbol_class> > x(sf);
+		factory = std::move(x);
 	};
 
 	template<class T>
 	void replaceFactory()
 	{
-		auto_ptr<SymbolFactory<symbol_class> > x(new SpecialistSymbolFactory<symbol_class,T>());
-		factory = x;
+		unique_ptr<SymbolFactory<symbol_class> > x(new SpecialistSymbolFactory<symbol_class,T>());
+		factory = std::move(x);
 	};
 
     typedef typename _Base::iterator iterator;
@@ -1864,8 +1864,8 @@ public:
 class analysis
 {
 private:
-	auto_ptr<VarTabFactory> varTabFactory;
-	auto_ptr<StructureFactory> strucFactory;
+	unique_ptr<VarTabFactory> varTabFactory;
+	unique_ptr<StructureFactory> strucFactory;
 
 public:
 	var_symbol_table * buildPredTab() {return varTabFactory->buildPredTab();};
@@ -1894,14 +1894,14 @@ public:
 
 	void setFactory(VarTabFactory * vf)
 	{
-		auto_ptr<VarTabFactory> x(vf);
-		varTabFactory = x;
+		unique_ptr<VarTabFactory> x(vf);
+		varTabFactory = std::move(x);
 	};
 
 	void setFactory(StructureFactory * sf)
 	{
-		auto_ptr<StructureFactory> x(sf);
-		strucFactory = x;
+		unique_ptr<StructureFactory> x(sf);
+		strucFactory = std::move(x);
 	};
 
     var_symbol_table_stack var_tab_stack;
