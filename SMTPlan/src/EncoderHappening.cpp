@@ -1352,9 +1352,9 @@ namespace SMTPlan {
 		s->getLHS()->visit(this);
 		s->getRHS()->visit(this);
 
-		z3::expr lhs = enc_expression_stack.back();
-		enc_expression_stack.pop_back();
 		z3::expr rhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+		z3::expr lhs = enc_expression_stack.back();
 		enc_expression_stack.pop_back();
 		enc_expression_stack.push_back(lhs + rhs);
 	}
@@ -1364,9 +1364,9 @@ namespace SMTPlan {
 		s->getLHS()->visit(this);
 		s->getRHS()->visit(this);
 
-		z3::expr lhs = enc_expression_stack.back();
-		enc_expression_stack.pop_back();
 		z3::expr rhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+		z3::expr lhs = enc_expression_stack.back();
 		enc_expression_stack.pop_back();
 		enc_expression_stack.push_back(lhs - rhs);
 	}
@@ -1376,9 +1376,9 @@ namespace SMTPlan {
 		s->getLHS()->visit(this);
 		s->getRHS()->visit(this);
 
-		z3::expr lhs = enc_expression_stack.back();
-		enc_expression_stack.pop_back();
 		z3::expr rhs = enc_expression_stack.back();
+		enc_expression_stack.pop_back();
+		z3::expr lhs = enc_expression_stack.back();
 		enc_expression_stack.pop_back();
 		enc_expression_stack.push_back(lhs * rhs);
 	}
